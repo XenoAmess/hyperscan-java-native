@@ -58,6 +58,19 @@ jobs:
         uses: docker://ghcr.io/gliwka/centos7-toolchain:main@sha256:e6cf17223408bb4d1314be547d74b23d04bcf6480d2fe23822fb672a52775f76
         with:
           args: '"./build.sh"'
+      - name: Verify baseline ISA (no AVX/AVX2/AVX-512 in native libs)
+        if: matrix.os == 'linux' && matrix.platform == 'linux-x86_64'
+        run: |
+          set -euo pipefail
+          find target/staging-deploy -path '*linux-x86_64*' -name '*.so' | while read -r SO; do
+            echo "Inspecting $SO"
+            if objdump -d "$SO" | grep -E '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' > /dev/null 2>&1; then
+              echo "FAIL: $SO contains VEX/EVEX (AVX/AVX2/AVX-512) instructions"
+              objdump -d "$SO" | grep -nE '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' | head -10
+              exit 1
+            fi
+          done
+          echo "PASS: no AVX/AVX2/AVX-512 instructions detected in linux-x86_64 .so files"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: build-result-${{ matrix.platform }}

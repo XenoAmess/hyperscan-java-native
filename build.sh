@@ -74,9 +74,31 @@ cd vectorscan
 # Disable flakey sqlite detection - only needed to build auxillary tools anyways.
 > cmake/sqlite3.cmake
 
+# Compatibility patches for GCC 9 (devtoolset-9 in CentOS 7 toolchain):
+# - vectorscan sets -march=x86-64-v2 when FAT_RUNTIME=off and AVX is disabled,
+#   but GCC 9 does not recognize that alias. Use westmere instead.
+# - GCC 9 supports -Wno-stringop-overflow but not -Wno-stringop-overread.
+sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
+sed -i 's/-Wno-stringop-overread//' cmake/cflags-generic.cmake
+
 case $DETECTED_PLATFORM in
 linux-x86_64)
-  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/.." -DCMAKE_INSTALL_LIBDIR="lib" -DPCRE_SOURCE="." -DFAT_RUNTIME=on -DBUILD_SHARED_LIBS=on -DBUILD_AVX2=yes -DBUILD_AVX512=yes -DBUILD_AVX512VBMI=yes .
+  # Baseline-only build: SSE4.2 + POPCNT (Westmere, 2010+). See doc/architecture/linux-x86_64-baseline.md
+  cmake -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
+        -DCMAKE_INSTALL_LIBDIR="lib" \
+        -DPCRE_SOURCE="." \
+        -DFAT_RUNTIME=off \
+        -DBUILD_SHARED_LIBS=on \
+        -DBUILD_AVX2=OFF \
+        -DBUILD_AVX512=OFF \
+        -DBUILD_AVX512VBMI=OFF \
+        -DBUILD_BENCHMARKS=false \
+        -DBUILD_EXAMPLES=false \
+        -DBUILD_TOOLS=false \
+        -DCMAKE_C_FLAGS="-march=westmere" \
+        -DCMAKE_CXX_FLAGS="-march=westmere" \
+        .
   make -j $THREADS all unit install/strip
 
   ;;
