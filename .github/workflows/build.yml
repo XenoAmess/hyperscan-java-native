@@ -17,16 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos
-            runner: macos-14-large
-            shell: bash
-            platform: macosx-x86_64
-            jdkArch: x64
-          - os: macos
-            runner: macos-14-xlarge
-            shell: bash
-            platform: macosx-arm64
-            jdkArch: aarch64
           - os: linux
             runner: ubuntu-24.04
             shell: bash
