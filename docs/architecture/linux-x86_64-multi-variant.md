@@ -45,7 +45,7 @@ x86-64 上 vectorscan 能用到的 SIMD 只有三个等级：
 
 ## 4. Variant 策略选择
 
-### 4.1 方案 A：2 variant（推荐）
+### 4.1 方案 A：2 variant
 
 | classifier | 指令集 | 构建配置 |
 |-----------|--------|---------|
@@ -55,21 +55,22 @@ x86-64 上 vectorscan 能用到的 SIMD 只有三个等级：
 **优点**：
 - 复杂度低，CI 只增加一个矩阵条目。
 - 覆盖 99% 以上的现代 x86-64 CPU。
-- AVX-512 CPU 跑 AVX2 版，损失通常只有 10% 以内（相比 AVX-512 最优路径）。
 
 **缺点**：
+- AVX-512 CPU 跑 AVX2 版，损失约 10%（相比 AVX-512 最优路径）。
 - 无法发挥 AVX-512 CPU 的最大性能。
 
-### 4.2 方案 B：3 variant（性能最完整）
+### 4.2 方案 B：3 variant（推荐）
 
 | classifier | 指令集 | 构建配置 |
 |-----------|--------|---------|
 | `linux-x86_64-baseline` | SSE4.2 + POPCNT | `-march=westmere` |
 | `linux-x86_64-avx2` | AVX2 + BMI2 | `-march=haswell` |
-| `linux-x86_64` | AVX-512 + VBMI | 原版 `FAT_RUNTIME=off`，`-DBUILD_AVX512=ON`，`-DBUILD_AVX512VBMI=ON`，`-march=skylake-avx512` |
+| `linux-x86_64` | AVX-512 + VBMI | `FAT_RUNTIME=off`，`-DBUILD_AVX512=ON`，`-DBUILD_AVX512VBMI=ON`，`-march=skylake-avx512` |
 
 **优点**：
 - 每种 CPU 都跑到最佳路径。
+- AVX-512 机器不再因为跑 AVX2 版而损失 10% 性能。
 
 **缺点**：
 - CI 增加两个矩阵条目。
@@ -83,16 +84,20 @@ x86-64 上不存在第四个有意义的 SIMD 等级。拆 AVX-512F/BW 和 AVX-5
 
 ---
 
-## 5. 推荐方案 A（2 variant）详细设计
+## 5. 推荐方案 B（3 variant）详细设计
 
 ### 5.1 产物结构
 
-同一个 jar 内同时包含：
+同一个 jar 内同时包含三套 so：
 
 ```
-com/gliwka/hyperscan/jni/linux-x86_64/libhs.so              # AVX2 build
+com/gliwka/hyperscan/jni/linux-x86_64/libhs.so              # AVX-512 build
 com/gliwka/hyperscan/jni/linux-x86_64/libhs_runtime.so
 com/gliwka/hyperscan/jni/linux-x86_64/libjnihyperscan.so
+
+com/gliwka/hyperscan/jni/linux-x86_64-avx2/libhs.so         # AVX2 build
+com/gliwka/hyperscan/jni/linux-x86_64-avx2/libhs_runtime.so
+com/gliwka/hyperscan/jni/linux-x86_64-avx2/libjnihyperscan.so
 
 com/gliwka/hyperscan/jni/linux-x86_64-baseline/libhs.so     # SSE4.2 build
 com/gliwka/hyperscan/jni/linux-x86_64-baseline/libhs_runtime.so
@@ -101,23 +106,49 @@ com/gliwka/hyperscan/jni/linux-x86_64-baseline/libjnihyperscan.so
 
 ### 5.2 build.sh 改造
 
-`build.sh` 的 `linux-x86_64` 分支改为根据 `DETECTED_PLATFORM` 判断：
+`build.sh` 的 `linux-x86_64*` 分支改为根据 `DETECTED_PLATFORM` 判断：
 
 ```bash
-linux-x86_64|linux-x86_64-baseline)
-  if [ "$DETECTED_PLATFORM" = "linux-x86_64-baseline" ]; then
-    MARCH="westmere"
-    BUILD_AVX2=OFF
-    BUILD_AVX512=OFF
-    BUILD_AVX512VBMI=OFF
-  else
-    MARCH="haswell"
-    BUILD_AVX2=ON
-    BUILD_AVX512=OFF
-    BUILD_AVX512VBMI=OFF
-  fi
+linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
+  case "$DETECTED_PLATFORM" in
+    linux-x86_64-baseline)
+      MARCH="westmere"
+      BUILD_AVX2=OFF
+      BUILD_AVX512=OFF
+      BUILD_AVX512VBMI=OFF
+      ;;
+    linux-x86_64-avx2)
+      MARCH="haswell"
+      BUILD_AVX2=ON
+      BUILD_AVX512=OFF
+      BUILD_AVX512VBMI=OFF
+      ;;
+    linux-x86_64)
+      MARCH="skylake-avx512"
+      BUILD_AVX2=ON
+      BUILD_AVX512=ON
+      BUILD_AVX512VBMI=ON
+      ;;
+  esac
 
   cmake -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
+        -DCMAKE_INSTALL_LIBDIR="lib" \
+        -DPCRE_SOURCE="." \
+        -DFAT_RUNTIME=off \
+        -DBUILD_SHARED_LIBS=on \
+        -DBUILD_AVX2=$BUILD_AVX2 \
+        -DBUILD_AVX512=$BUILD_AVX512 \
+        -DBUILD_AVX512VBMI=$BUILD_AVX512VBMI \
+        -DBUILD_BENCHMARKS=false \
+        -DBUILD_EXAMPLES=false \
+        -DBUILD_TOOLS=false \
+        -DCMAKE_C_FLAGS="-march=$MARCH" \
+        -DCMAKE_CXX_FLAGS="-march=$MARCH" \
+        .
+  make -j $THREADS all unit install/strip
+  ;;
+```
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
         -DCMAKE_INSTALL_LIBDIR="lib" \
         -DPCRE_SOURCE="." \
