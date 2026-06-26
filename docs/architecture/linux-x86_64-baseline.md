@@ -37,7 +37,25 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 - `BUILD_AVX512VBMI=yes`：`AVX-512 VBMI`（IceLake 特性）路径进入链接产物。
 - 构建在 `ghcr.io/gliwka/centos7-toolchain:main`（CentOS 7，gcc 4.8.5，glibc 2.17）中完成。
 
-### 1.2 客户现场常见的失败模式
+### 1.2 为什么 `FAT_RUNTIME=on` 仍会 SIGILL？
+
+原版 `5.4.12-2.0.4` 的 jar 在 Maven Central 上发布，我们对该产物反汇编后发现：
+
+| `.so` | VEX/EVEX（AVX/AVX2/AVX-512）指令数量 |
+|-------|--------------------------------------|
+| `libjnihyperscan.so` | 0 |
+| `libhs.so` | **57,634** |
+| `libhs_runtime.so` | **57,634** |
+
+这说明：
+
+1. `FAT_RUNTIME=on` 只保护 `hs_scan` 等入口的 runtime dispatch，**不能保证整个 `.so` 不含 AVX 指令**。
+2. 通用代码、库初始化、被编译器自动 vectorize 的循环等，仍然会泄漏 AVX/AVX2/AVX-512 指令到 `.text` 段。
+3. 当客户 CPU/虚拟化环境不支持这些指令时，库加载或初始化阶段就会触发 `Illegal instruction`。
+
+因此本方案从源头彻底禁用 AVX，并通过 CI 的 `objdump` 检查确保所有 `.so` 不含 VEX/EVEX 指令。
+
+### 1.3 客户现场常见的失败模式
 
 | 模式                                              | 触发条件                                                                | 报错特征                             |
 | ------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------ |
