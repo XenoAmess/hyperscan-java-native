@@ -32,6 +32,15 @@ jobs:
           - os: linux
             runner: ubuntu-24.04-arm
             platform: linux-arm64
+          - os: windows
+            runner: windows-latest
+            platform: windows-x86_64-baseline
+          - os: windows
+            runner: windows-latest
+            platform: windows-x86_64-avx2
+          - os: windows
+            runner: windows-latest
+            platform: windows-x86_64
     env:
       DETECTED_PLATFORM: ${{ matrix.platform }}
       STAGING: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -42,6 +51,14 @@ jobs:
         uses: docker://ghcr.io/gliwka/centos7-toolchain:main@sha256:e6cf17223408bb4d1314be547d74b23d04bcf6480d2fe23822fb672a52775f76
         with:
           args: '"./build.sh"'
+      - name: Build native binaries on Windows
+        if: matrix.os == 'windows'
+        shell: bash
+        run: |
+          # Use MSYS2 bash which is already present on windows-latest.
+          # Ensure cmake and python are available; GitHub's windows image includes them.
+          export PATH="/c/Program Files/CMake/bin:/c/Program Files/Python311:$PATH"
+          ./build-windows.sh
       - name: Verify ISA per variant
         if: matrix.os == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
         run: |
@@ -77,7 +94,7 @@ jobs:
           name: build-result-${{ matrix.platform }}
           path: target/staging-deploy
 
-  package-linux-native:
+  package-native:
     name: Package unified native jars
     needs: build-native
     runs-on: ubuntu-24.04
@@ -111,45 +128,67 @@ jobs:
             cp "$F" "$GROUP_DIR/"
           done
 
-          # Locate the three x86_64 variant classifier jars.
-          BASELINE_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64-baseline.jar" | head -n1)
-          AVX2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64-avx2.jar" | head -n1)
-          AVX512_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64.jar" | head -n1)
-          for F in "$BASELINE_JAR" "$AVX2_JAR" "$AVX512_JAR"; do
+          # Locate the three linux-x86_64 variant classifier jars.
+          LINUX_BASELINE_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64-baseline.jar" | head -n1)
+          LINUX_AVX2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64-avx2.jar" | head -n1)
+          LINUX_AVX512_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64.jar" | head -n1)
+          for F in "$LINUX_BASELINE_JAR" "$LINUX_AVX2_JAR" "$LINUX_AVX512_JAR"; do
             if [ -z "$F" ] || [ ! -f "$F" ]; then
-              echo "ERROR: missing x86_64 variant classifier jar"
+              echo "ERROR: missing linux-x86_64 variant classifier jar"
               exit 1
             fi
           done
 
-          # Merge the three x86_64 variant native directories into one linux-x86_64 classifier jar.
+          # Merge the three linux-x86_64 variant native directories into one linux-x86_64 classifier jar.
           MERGE_DIR=$(mktemp -d)
-          echo "Merging x86_64 AVX-512 base from $AVX512_JAR"
-          unzip -q -o "$AVX512_JAR" -d "$MERGE_DIR"
-          echo "Overlaying x86_64 AVX2 from $AVX2_JAR"
-          unzip -q -o "$AVX2_JAR" -d "$MERGE_DIR"
-          echo "Overlaying x86_64 baseline from $BASELINE_JAR"
-          unzip -q -o "$BASELINE_JAR" -d "$MERGE_DIR"
+          echo "Merging linux-x86_64 AVX-512 base from $LINUX_AVX512_JAR"
+          unzip -q -o "$LINUX_AVX512_JAR" -d "$MERGE_DIR"
+          echo "Overlaying linux-x86_64 AVX2 from $LINUX_AVX2_JAR"
+          unzip -q -o "$LINUX_AVX2_JAR" -d "$MERGE_DIR"
+          echo "Overlaying linux-x86_64 baseline from $LINUX_BASELINE_JAR"
+          unzip -q -o "$LINUX_BASELINE_JAR" -d "$MERGE_DIR"
           (cd "$MERGE_DIR" && zip -r "$GROUP_DIR/native-${VERSION}-linux-x86_64.jar" .)
           rm -rf "$MERGE_DIR"
 
-          # Locate the two arm64 variant classifier jars.
+          # Locate the two linux-arm64 variant classifier jars.
           ARM64_BASELINE_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-arm64-baseline.jar" | head -n1)
           ARM64_SVE2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-arm64.jar" | head -n1)
           for F in "$ARM64_BASELINE_JAR" "$ARM64_SVE2_JAR"; do
             if [ -z "$F" ] || [ ! -f "$F" ]; then
-              echo "ERROR: missing arm64 variant classifier jar"
+              echo "ERROR: missing linux-arm64 variant classifier jar"
               exit 1
             fi
           done
 
-          # Merge the two arm64 variant native directories into one linux-arm64 classifier jar.
+          # Merge the two linux-arm64 variant native directories into one linux-arm64 classifier jar.
           MERGE_DIR=$(mktemp -d)
-          echo "Merging arm64 SVE2 base from $ARM64_SVE2_JAR"
+          echo "Merging linux-arm64 SVE2 base from $ARM64_SVE2_JAR"
           unzip -q -o "$ARM64_SVE2_JAR" -d "$MERGE_DIR"
-          echo "Overlaying arm64 baseline from $ARM64_BASELINE_JAR"
+          echo "Overlaying linux-arm64 baseline from $ARM64_BASELINE_JAR"
           unzip -q -o "$ARM64_BASELINE_JAR" -d "$MERGE_DIR"
           (cd "$MERGE_DIR" && zip -r "$GROUP_DIR/native-${VERSION}-linux-arm64.jar" .)
+          rm -rf "$MERGE_DIR"
+
+          # Locate the three windows-x86_64 variant classifier jars.
+          WIN_BASELINE_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-windows-x86_64-baseline.jar" | head -n1)
+          WIN_AVX2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-windows-x86_64-avx2.jar" | head -n1)
+          WIN_AVX512_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-windows-x86_64.jar" | head -n1)
+          for F in "$WIN_BASELINE_JAR" "$WIN_AVX2_JAR" "$WIN_AVX512_JAR"; do
+            if [ -z "$F" ] || [ ! -f "$F" ]; then
+              echo "ERROR: missing windows-x86_64 variant classifier jar"
+              exit 1
+            fi
+          done
+
+          # Merge the three windows-x86_64 variant native directories into one windows-x86_64 classifier jar.
+          MERGE_DIR=$(mktemp -d)
+          echo "Merging windows-x86_64 AVX-512 base from $WIN_AVX512_JAR"
+          unzip -q -o "$WIN_AVX512_JAR" -d "$MERGE_DIR"
+          echo "Overlaying windows-x86_64 AVX2 from $WIN_AVX2_JAR"
+          unzip -q -o "$WIN_AVX2_JAR" -d "$MERGE_DIR"
+          echo "Overlaying windows-x86_64 baseline from $WIN_BASELINE_JAR"
+          unzip -q -o "$WIN_BASELINE_JAR" -d "$MERGE_DIR"
+          (cd "$MERGE_DIR" && zip -r "$GROUP_DIR/native-${VERSION}-windows-x86_64.jar" .)
           rm -rf "$MERGE_DIR"
 
           # Recreate maven metadata for the local staging repository.
@@ -178,7 +217,7 @@ jobs:
 
   test-linux-x86_64:
     name: Test linux-x86_64 variants
-    needs: package-linux-native
+    needs: package-native
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -224,7 +263,7 @@ jobs:
 
   test-linux-arm64:
     name: Test linux-arm64 variants
-    needs: package-linux-native
+    needs: package-native
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -265,12 +304,64 @@ jobs:
           echo "=== forced linux-arm64-baseline ==="
           java -Dorg.bytedeco.javacpp.platform=linux-arm64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
 
+  test-windows-x86_64:
+    name: Test windows-x86_64 variants
+    needs: package-native
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          name: build-result-native-merged
+          path: target/staging-deploy
+      - name: Build test classpath
+        shell: bash
+        run: mvn -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -DincludeScope=test
+      - name: Prepare classes and run end-to-end tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          MAIN_JAR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}/native-${VERSION}.jar"
+          CLASSIFIER_JAR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}/native-${VERSION}-windows-x86_64.jar"
+
+          if [ ! -f "$MAIN_JAR" ] || [ ! -f "$CLASSIFIER_JAR" ]; then
+            echo "ERROR: missing artifact jar"
+            exit 1
+          fi
+
+          mkdir -p target/classes target/test-classes target/native-test
+          unzip -q -o "$MAIN_JAR" -d target/classes
+          unzip -q -o "$CLASSIFIER_JAR" -d target/native-test
+
+          javac -cp "target/classes:$(cat target/cp.txt)" -d target/test-classes \
+            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java
+
+          CP="target/classes:target/test-classes:target/native-test:$(cat target/cp.txt)"
+
+          echo "=== default platform ==="
+          java -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
+          echo "=== forced windows-x86_64-baseline ==="
+          java -Dorg.bytedeco.javacpp.platform=windows-x86_64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
+          echo "=== forced windows-x86_64-avx2 ==="
+          java -Dorg.bytedeco.javacpp.platform=windows-x86_64-avx2 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
   publish:
     if: contains(github.ref, 'refs/tags/v')
     needs:
-      - package-linux-native
+      - package-native
       - test-linux-x86_64
       - test-linux-arm64
+      - test-windows-x86_64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
