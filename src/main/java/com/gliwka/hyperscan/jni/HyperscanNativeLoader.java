@@ -45,7 +45,7 @@ public final class HyperscanNativeLoader {
         loaded = true;
     }
 
-    static String selectPlatform() {
+    public static String selectPlatform() {
         String os = System.getProperty("os.name", "").toLowerCase();
         String arch = System.getProperty("os.arch", "").toLowerCase();
 
