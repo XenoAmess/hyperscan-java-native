@@ -53,6 +53,7 @@ public final class HyperscanNativeLoader {
         String arch = System.getProperty("os.arch", "").toLowerCase();
 
         boolean isLinux = os.contains("linux");
+        boolean isWindows = os.contains("windows");
         boolean isX86_64 = arch.equals("amd64") || arch.equals("x86_64");
         boolean isArm64 = arch.equals("aarch64") || arch.equals("arm64");
 
@@ -62,6 +63,10 @@ public final class HyperscanNativeLoader {
 
         if (isLinux && isArm64) {
             return selectLinuxArm64Variant();
+        }
+
+        if (isWindows && isX86_64) {
+            return selectWindowsX86_64Variant();
         }
 
         return null;
@@ -94,6 +99,46 @@ public final class HyperscanNativeLoader {
         }
 
         return "linux-arm64-baseline";
+    }
+
+    private static String selectWindowsX86_64Variant() {
+        Set<String> flags = readWindowsCpuFlags();
+
+        if (flags.containsAll(LINUX_X86_64_AVX512VBMI_FLAGS)) {
+            return "windows-x86_64";
+        }
+        if (flags.containsAll(LINUX_X86_64_AVX512_FLAGS)) {
+            return "windows-x86_64";
+        }
+        if (flags.containsAll(LINUX_X86_64_AVX2_FLAGS)) {
+            return "windows-x86_64-avx2";
+        }
+
+        return "windows-x86_64-baseline";
+    }
+
+    private static Set<String> readWindowsCpuFlags() {
+        Set<String> flags = new HashSet<>();
+
+        String cpuIdentifier = System.getenv("PROCESSOR_IDENTIFIER");
+        if (cpuIdentifier != null) {
+            String lower = cpuIdentifier.toLowerCase();
+            if (lower.contains("avx512vbmi")) {
+                flags.add("avx512f");
+                flags.add("avx512bw");
+                flags.add("avx512vl");
+                flags.add("avx512vbmi");
+            } else if (lower.contains("avx512")) {
+                flags.add("avx512f");
+                flags.add("avx512bw");
+                flags.add("avx512vl");
+            } else if (lower.contains("avx2")) {
+                flags.add("avx2");
+                flags.add("bmi2");
+            }
+        }
+
+        return flags;
     }
 
     private static Set<String> readLinuxCpuFlags() {

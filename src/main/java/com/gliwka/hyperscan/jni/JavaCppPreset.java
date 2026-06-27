@@ -40,6 +40,9 @@ import org.bytedeco.javacpp.tools.InfoMapper;
                                 "linux-x86_64-baseline",
                                 "linux-arm64",
                                 "linux-arm64-baseline",
+                                "windows-x86_64",
+                                "windows-x86_64-avx2",
+                                "windows-x86_64-baseline",
                                 "macosx-x86_64",
                                 "macosx-arm64"
                         },
