@@ -66,6 +66,13 @@ cd hyperscan
 
 case $DETECTED_PLATFORM in
 windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
+  # The upstream Intel Hyperscan CMakeLists always adds unit/tools/chimera,
+  # which require PCRE. We only need the runtime/compile libraries, so remove
+  # those optional subdirectories.
+  sed -i '/add_subdirectory(unit)/d' CMakeLists.txt
+  sed -i '/add_subdirectory(tools)/d' CMakeLists.txt
+  sed -i '/add_subdirectory(chimera)/d' CMakeLists.txt
+
   case $DETECTED_PLATFORM in
     windows-x86_64-baseline)
       ARCH_FLAGS=""
@@ -87,7 +94,7 @@ windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
       ;;
   esac
 
-  cmake -G "Visual Studio 17 2022" -A x64 \
+  cmake -G "Visual Studio 18 2026" -A x64 \
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
@@ -97,6 +104,7 @@ windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
         -DBUILD_AVX512=$BUILD_AVX512 \
         -DBUILD_AVX512VBMI=$BUILD_AVX512VBMI \
         -DFAT_RUNTIME=off \
+        -DPYTHON_EXECUTABLE="$(command -v python)" \
         -DCMAKE_C_FLAGS="$ARCH_FLAGS" \
         -DCMAKE_CXX_FLAGS="$ARCH_FLAGS" \
         .

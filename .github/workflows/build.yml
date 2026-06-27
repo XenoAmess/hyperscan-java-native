@@ -51,19 +51,27 @@ jobs:
         uses: docker://ghcr.io/gliwka/centos7-toolchain:main@sha256:e6cf17223408bb4d1314be547d74b23d04bcf6480d2fe23822fb672a52775f76
         with:
           args: '"./build.sh"'
-      - name: Build native binaries on Windows
+      - name: Set up Python
         if: matrix.os == 'windows'
-        shell: bash
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f392ef68e
+        with:
+          python-version: '3.12'
+      - name: Install ragel (MSYS2)
+        if: matrix.os == 'windows'
+        shell: C:\msys64\usr\bin\bash.exe {0}
         run: |
-          # Use MSYS2 bash which is already present on windows-latest.
-          # Ensure cmake and python are available; GitHub's windows image includes them.
-          export PATH="/c/Program Files/CMake/bin:/c/Program Files/Python311:$PATH"
-          ./build-windows.sh
+          pacman -S --noconfirm ragel
       - name: Setup MSVC dev command prompt
         if: matrix.os == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+      - name: Build native binaries on Windows
+        if: matrix.os == 'windows'
+        shell: bash
+        run: |
+          export PATH="/c/msys64/usr/bin:$PATH"
+          ./build-windows.sh
       - name: Verify ISA per variant
         if: matrix.os == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
         run: |
