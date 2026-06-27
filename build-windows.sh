@@ -88,6 +88,7 @@ windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
   esac
 
   cmake -G "Visual Studio 17 2022" -A x64 \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
         -DCMAKE_INSTALL_LIBDIR="lib" \
