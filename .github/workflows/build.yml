@@ -330,7 +330,7 @@ jobs:
           path: target/staging-deploy
       - name: Build test classpath
         shell: bash
-        run: mvn -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -DincludeScope=test
+        run: mvn -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -DincludeScope=test -Dmdep.pathSeparator=';'
       - name: Prepare classes and run end-to-end tests
         shell: bash
         run: |
@@ -348,10 +348,10 @@ jobs:
           unzip -q -o "$MAIN_JAR" -d target/classes
           unzip -q -o "$CLASSIFIER_JAR" -d target/native-test
 
-          javac -cp "target/classes:$(cat target/cp.txt)" -d target/test-classes \
+          javac -cp "target/classes;$(cat target/cp.txt)" -d target/test-classes \
             src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java
 
-          CP="target/classes:target/test-classes:target/native-test:$(cat target/cp.txt)"
+          CP="target/classes;target/test-classes;target/native-test;$(cat target/cp.txt)"
 
           echo "=== default platform ==="
           java -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
