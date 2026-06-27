@@ -58,9 +58,9 @@ jobs:
           python-version: '3.12'
       - name: Install ragel (MSYS2)
         if: matrix.os == 'windows'
-        shell: C:\msys64\usr\bin\bash.exe {0}
+        shell: bash
         run: |
-          pacman -S --noconfirm ragel
+          C:/msys64/usr/bin/bash.exe -lc "pacman -S --noconfirm ragel"
       - name: Setup MSVC dev command prompt
         if: matrix.os == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
