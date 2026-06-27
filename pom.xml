@@ -2,12 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <groupId>com.gliwka.hyperscan</groupId>
+    <groupId>com.xenoamess.hyperscan</groupId>
     <artifactId>native</artifactId>
-    <version>5.4.12-2.0.4-x3</version>
+    <version>5.4.12-2.0.4-x4</version>
     <name>hyperscan-java-native</name>
     <description>Native libraries for hyperscan java bindings</description>
-    <url>https://github.com/gliwka/hyperscan-java-native</url>
+    <url>https://github.com/XenoAmess/hyperscan-java-native</url>
     <licenses>
         <license>
             <name>3-Clause BSD License</name>
@@ -19,11 +19,15 @@
             <name>Matthias Gliwka</name>
             <email>matthias@gliwka.eu</email>
         </developer>
+        <developer>
+            <name>XenoAmess</name>
+            <email>xenoamess@gmail.com</email>
+        </developer>
     </developers>
     <scm>
-        <connection>scm:git:git://github.com/gliwka/hyperscan-java-native.git</connection>
-        <developerConnection>scm:git:ssh://github.com/gliwka/hyperscan-java-native.git</developerConnection>
-        <url>https://github.com/gliwka/hyperscan-java-native</url>
+        <connection>scm:git:git://github.com/XenoAmess/hyperscan-java-native.git</connection>
+        <developerConnection>scm:git:ssh://github.com/XenoAmess/hyperscan-java-native.git</developerConnection>
+        <url>https://github.com/XenoAmess/hyperscan-java-native</url>
     </scm>
     <modelVersion>4.0.0</modelVersion>
     <properties>
