@@ -59,6 +59,11 @@ jobs:
           # Ensure cmake and python are available; GitHub's windows image includes them.
           export PATH="/c/Program Files/CMake/bin:/c/Program Files/Python311:$PATH"
           ./build-windows.sh
+      - name: Setup MSVC dev command prompt
+        if: matrix.os == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
       - name: Verify ISA per variant
         if: matrix.os == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
         run: |
