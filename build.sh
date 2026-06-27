@@ -21,7 +21,7 @@ export DETECTED_PLATFORM=${DETECTED_PLATFORM:-$(detect_platform)}
 cross_platform_nproc() {
   case $DETECTED_PLATFORM in
     macosx-x86_64|macosx-arm64) echo $(sysctl -n hw.logicalcpu) ;;
-    linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64) echo $(nproc --all) ;;
+    linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64|linux-arm64-baseline) echo $(nproc --all) ;;
     *) echo Unsupported Platform: $DETECTED_PLATFORM >&2 ; exit -1 ;;
   esac
 }
@@ -31,7 +31,7 @@ cross_platform_check_sha() {
   local file=$2
   case $DETECTED_PLATFORM in
     macosx-x86_64|macosx-arm64) echo "$sha  $file" | shasum -a 256 -c ;;
-    linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64) echo "$sha  $file" | sha256sum -c ;;
+    linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64|linux-arm64-baseline) echo "$sha  $file" | sha256sum -c ;;
     *) echo Unsupported Platform: $DETECTED_PLATFORM >&2 ; exit -1 ;;
   esac
 }
@@ -124,9 +124,40 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
         .
   make -j $THREADS install/strip
   ;;
-linux-arm64)
+linux-arm64|linux-arm64-baseline)
+  # Determine SIMD tier for this linux-arm64 variant.
+  # See docs/architecture/linux-arm64-multi-variant.md
+  case $DETECTED_PLATFORM in
+    linux-arm64-baseline)
+      MARCH="armv8-a"
+      BUILD_SVE=OFF
+      BUILD_SVE2=OFF
+      FAT_RUNTIME=off
+      ;;
+    linux-arm64)
+      MARCH="armv9-a"
+      BUILD_SVE=ON
+      BUILD_SVE2=ON
+      FAT_RUNTIME=off
+      ;;
+  esac
+
+  # The X86 sed is a no-op on ARM but kept for build script uniformity.
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
-  CC="clang" CXX="clang++" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/.." -DCMAKE_INSTALL_LIBDIR="lib" -DPCRE_SOURCE="." -DFAT_RUNTIME=on -DBUILD_SHARED_LIBS=on -DBUILD_SVE=on -DBUILD_SVE2=on .
+  CC="clang" CXX="clang++" cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
+        -DCMAKE_INSTALL_LIBDIR="lib" \
+        -DPCRE_SOURCE="." \
+        -DFAT_RUNTIME=$FAT_RUNTIME \
+        -DBUILD_SHARED_LIBS=on \
+        -DBUILD_SVE=$BUILD_SVE \
+        -DBUILD_SVE2=$BUILD_SVE2 \
+        -DCMAKE_C_FLAGS="-march=$MARCH" \
+        -DCMAKE_CXX_FLAGS="-march=$MARCH" \
+        -DBUILD_BENCHMARKS=false \
+        -DBUILD_EXAMPLES=false \
+        .
   make -j $THREADS install/strip
   ;;
 macosx-x86_64|macosx-arm64)

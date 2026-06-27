@@ -1,9 +1,9 @@
-# Linux x86_64 多 Variant 改造方案
+# Linux 多 Variant 改造方案
 
 | 字段 | 值 |
 |------|-----|
-| 文档版本 | v2.0 |
-| 适用范围 | `hyperscan-java-native`（fork） 5.4.12-2.0.4-x2+ |
+| 文档版本 | v2.1 |
+| 适用范围 | `hyperscan-java-native`（fork） 5.4.12-2.0.4-x3+ |
 | 仓库根 | `/home/xenoamess/workspace/hyperscan-java-native` |
 | 状态 | 已实施 |
 
@@ -14,6 +14,8 @@
 单基线版 `linux-x86_64-baseline`（SSE4.2 + POPCNT）解决了老 CPU 的 SIGILL 问题，但纯扫描场景性能损失约 **28%–35%**。
 
 为了在 SSE4.2 老 CPU 上可用、在 AVX2 主流 CPU 上满速、在 AVX-512 高端 CPU 上发挥最大性能，本仓库实施了三 variant 方案：同一个 Maven classifier jar 内同时打包三套 native library，运行时根据 CPU 能力自动选择。
+
+ARM64 端采用同样的思路拆分为 `linux-arm64-baseline`（ARMv8.0/NEON）与 `linux-arm64`（SVE2），详见 `docs/architecture/linux-arm64-multi-variant.md`。
 
 ---
 
@@ -61,7 +63,7 @@ com/gliwka/hyperscan/jni/linux-x86_64-baseline/libhs_runtime.so
 com/gliwka/hyperscan/jni/linux-x86_64-baseline/libjnihyperscan.so
 ```
 
-`linux-arm64` 仍作为独立 classifier 发布，不受影响。
+`linux-arm64` 也按同样思路拆分为 `linux-arm64-baseline` 与 `linux-arm64`，统一打包进 `native-<version>-linux-arm64.jar`，详见 `docs/architecture/linux-arm64-multi-variant.md`。
 
 ---
 
@@ -189,10 +191,20 @@ matrix:
       platform: linux-x86_64
     - os: linux
       runner: ubuntu-24.04-arm
+      platform: linux-arm64-baseline
+    - os: linux
+      runner: ubuntu-24.04-arm
       platform: linux-arm64
 ```
 
 每个 matrix 条目在 CentOS 7 容器里跑 `./build.sh`，`DETECTED_PLATFORM` 设为对应值。
+
+x86_64 与 arm64 的全部 variant 在 `package-linux-native` 中分别聚合成统一的 classifier jar，最终发布到 Maven Central 的 artifact：
+
+- `native-<version>.jar`（Java 类，含 `HyperscanNativeLoader`）
+- `native-<version>-linux-x86_64.jar`（聚合三套 x86_64 so）
+- `native-<version>-linux-arm64.jar`（聚合两套 arm64 so）
+- sources / javadoc
 
 ### 7.2 ISA 校验
 
@@ -206,19 +218,19 @@ matrix:
 
 ### 7.3 聚合 package 任务
 
-新增 `package-linux-x86_64` job：
+新增 `package-linux-native` job：
 
-1. 下载三个 x86_64 variant 的 staging artifact。
+1. 下载三个 x86_64 variant 与两个 arm64 variant 的 staging artifact。
 2. 提取各自的 classifier jar。
-3. 把 `linux-x86_64-avx2` 与 `linux-x86_64-baseline` 的 native 目录叠加到 `linux-x86_64` jar 中。
-4. 生成统一的 `native-<version>-linux-x86_64.jar`。
-5. 把 `linux-arm64` classifier jar 一并放入 staging repo。
+3. 把 x86_64 的 `linux-x86_64-avx2` 与 `linux-x86_64-baseline` 的 native 目录叠加到 `linux-x86_64` jar 中。
+4. 把 arm64 的 `linux-arm64-baseline` 的 native 目录叠加到 `linux-arm64` jar 中。
+5. 生成统一的 `native-<version>-linux-x86_64.jar` 与 `native-<version>-linux-arm64.jar`。
 
 最终发布到 Maven Central 的 artifact：
 
 - `native-<version>.jar`（Java 类，含 `HyperscanNativeLoader`）
 - `native-<version>-linux-x86_64.jar`（聚合三套 x86_64 so）
-- `native-<version>-linux-arm64.jar`
+- `native-<version>-linux-arm64.jar`（聚合两套 arm64 so）
 - sources / javadoc
 
 ---
@@ -249,7 +261,7 @@ HyperscanNativeLoader.load();
 
 ### 8.4 版本号
 
-本方案随 `5.4.12-2.0.4-x2` 发布。
+本方案随 `5.4.12-2.0.4-x3` 发布。
 
 ---
 
@@ -268,6 +280,7 @@ HyperscanNativeLoader.load();
 ## 10. 参考资料
 
 - `docs/architecture/linux-x86_64-baseline.md`：单基线改造方案
+- `docs/architecture/linux-arm64-multi-variant.md`：ARM64 多 variant 改造方案
 - `docs/architecture/investigating-avx-leak-in-original-jar.md`：原版 jar 指令泄漏排查
 - `docs/performance/linux-x86_64-baseline-benchmark.md`：性能测试报告
 - `src/main/java/com/gliwka/hyperscan/jni/HyperscanNativeLoader.java`：运行时加载器

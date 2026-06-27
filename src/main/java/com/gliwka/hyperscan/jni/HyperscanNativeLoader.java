@@ -23,6 +23,9 @@ public final class HyperscanNativeLoader {
     private static final Set<String> LINUX_X86_64_AVX512VBMI_FLAGS = new HashSet<>(
             Arrays.asList("avx512f", "avx512bw", "avx512vl", "avx512vbmi")
     );
+    private static final Set<String> LINUX_ARM64_SVE2_FLAGS = new HashSet<>(
+            Arrays.asList("sve2")
+    );
 
     private static volatile boolean loaded = false;
 
@@ -51,9 +54,14 @@ public final class HyperscanNativeLoader {
 
         boolean isLinux = os.contains("linux");
         boolean isX86_64 = arch.equals("amd64") || arch.equals("x86_64");
+        boolean isArm64 = arch.equals("aarch64") || arch.equals("arm64");
 
         if (isLinux && isX86_64) {
             return selectLinuxX86_64Variant();
+        }
+
+        if (isLinux && isArm64) {
+            return selectLinuxArm64Variant();
         }
 
         return null;
@@ -78,12 +86,22 @@ public final class HyperscanNativeLoader {
         return "linux-x86_64-baseline";
     }
 
+    private static String selectLinuxArm64Variant() {
+        Set<String> flags = readLinuxCpuFlags();
+
+        if (flags.containsAll(LINUX_ARM64_SVE2_FLAGS)) {
+            return "linux-arm64";
+        }
+
+        return "linux-arm64-baseline";
+    }
+
     private static Set<String> readLinuxCpuFlags() {
         Set<String> flags = new HashSet<>();
         try (BufferedReader reader = new BufferedReader(new FileReader("/proc/cpuinfo"))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith("flags")) {
+                if (line.toLowerCase().startsWith("flags") || line.startsWith("Features")) {
                     int idx = line.indexOf(':');
                     if (idx >= 0) {
                         String[] parts = line.substring(idx + 1).trim().split("\\s+");

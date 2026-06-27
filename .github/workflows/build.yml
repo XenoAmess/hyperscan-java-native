@@ -28,6 +28,9 @@ jobs:
             platform: linux-x86_64
           - os: linux
             runner: ubuntu-24.04-arm
+            platform: linux-arm64-baseline
+          - os: linux
+            runner: ubuntu-24.04-arm
             platform: linux-arm64
     env:
       DETECTED_PLATFORM: ${{ matrix.platform }}
@@ -74,8 +77,8 @@ jobs:
           name: build-result-${{ matrix.platform }}
           path: target/staging-deploy
 
-  package-linux-x86_64:
-    name: Package unified linux-x86_64 jar
+  package-linux-native:
+    name: Package unified native jars
     needs: build-native
     runs-on: ubuntu-24.04
     steps:
@@ -88,7 +91,7 @@ jobs:
         with:
           path: target/variant-staging
           merge-multiple: false
-      - name: Merge linux-x86_64 variants into unified jar
+      - name: Merge variants into unified classifier jars
         run: |
           set -euo pipefail
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
@@ -114,28 +117,40 @@ jobs:
           AVX512_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64.jar" | head -n1)
           for F in "$BASELINE_JAR" "$AVX2_JAR" "$AVX512_JAR"; do
             if [ -z "$F" ] || [ ! -f "$F" ]; then
-              echo "ERROR: missing variant classifier jar"
+              echo "ERROR: missing x86_64 variant classifier jar"
               exit 1
             fi
           done
 
-          # Merge the three variant native directories into one linux-x86_64 classifier jar.
+          # Merge the three x86_64 variant native directories into one linux-x86_64 classifier jar.
           MERGE_DIR=$(mktemp -d)
-          echo "Merging AVX-512 base from $AVX512_JAR"
+          echo "Merging x86_64 AVX-512 base from $AVX512_JAR"
           unzip -q -o "$AVX512_JAR" -d "$MERGE_DIR"
-          echo "Overlaying AVX2 from $AVX2_JAR"
+          echo "Overlaying x86_64 AVX2 from $AVX2_JAR"
           unzip -q -o "$AVX2_JAR" -d "$MERGE_DIR"
-          echo "Overlaying baseline from $BASELINE_JAR"
+          echo "Overlaying x86_64 baseline from $BASELINE_JAR"
           unzip -q -o "$BASELINE_JAR" -d "$MERGE_DIR"
           (cd "$MERGE_DIR" && zip -r "$GROUP_DIR/native-${VERSION}-linux-x86_64.jar" .)
           rm -rf "$MERGE_DIR"
 
-          # Bring in the arm64 classifier jar (main/sources/javadoc are identical).
-          ARM64_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-arm64.jar" | head -n1)
-          if [ -n "$ARM64_JAR" ] && [ -f "$ARM64_JAR" ]; then
-            echo "Copying arm64 classifier jar: $ARM64_JAR"
-            cp "$ARM64_JAR" "$GROUP_DIR/"
-          fi
+          # Locate the two arm64 variant classifier jars.
+          ARM64_BASELINE_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-arm64-baseline.jar" | head -n1)
+          ARM64_SVE2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-arm64.jar" | head -n1)
+          for F in "$ARM64_BASELINE_JAR" "$ARM64_SVE2_JAR"; do
+            if [ -z "$F" ] || [ ! -f "$F" ]; then
+              echo "ERROR: missing arm64 variant classifier jar"
+              exit 1
+            fi
+          done
+
+          # Merge the two arm64 variant native directories into one linux-arm64 classifier jar.
+          MERGE_DIR=$(mktemp -d)
+          echo "Merging arm64 SVE2 base from $ARM64_SVE2_JAR"
+          unzip -q -o "$ARM64_SVE2_JAR" -d "$MERGE_DIR"
+          echo "Overlaying arm64 baseline from $ARM64_BASELINE_JAR"
+          unzip -q -o "$ARM64_BASELINE_JAR" -d "$MERGE_DIR"
+          (cd "$MERGE_DIR" && zip -r "$GROUP_DIR/native-${VERSION}-linux-arm64.jar" .)
+          rm -rf "$MERGE_DIR"
 
           # Recreate maven metadata for the local staging repository.
           mkdir -p "target/staging-deploy/com/gliwka/hyperscan/native"
@@ -158,12 +173,12 @@ jobs:
           find target/staging-deploy -type f
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: build-result-linux-x86_64-merged
+          name: build-result-native-merged
           path: target/staging-deploy
 
   test-linux-x86_64:
     name: Test linux-x86_64 variants
-    needs: package-linux-x86_64
+    needs: package-linux-native
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -173,7 +188,7 @@ jobs:
           java-version: '21'
       - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
         with:
-          name: build-result-linux-x86_64-merged
+          name: build-result-native-merged
           path: target/staging-deploy
       - name: Build test classpath
         run: mvn -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -DincludeScope=test
@@ -208,8 +223,8 @@ jobs:
           java -Dorg.bytedeco.javacpp.platform=linux-x86_64-avx2 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
 
   test-linux-arm64:
-    name: Test linux-arm64 variant
-    needs: package-linux-x86_64
+    name: Test linux-arm64 variants
+    needs: package-linux-native
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -219,7 +234,7 @@ jobs:
           java-version: '21'
       - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
         with:
-          name: build-result-linux-x86_64-merged
+          name: build-result-native-merged
           path: target/staging-deploy
       - name: Build test classpath
         run: mvn -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -DincludeScope=test
@@ -247,10 +262,13 @@ jobs:
           echo "=== default arm64 platform ==="
           java -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
 
+          echo "=== forced linux-arm64-baseline ==="
+          java -Dorg.bytedeco.javacpp.platform=linux-arm64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
   publish:
     if: contains(github.ref, 'refs/tags/v')
     needs:
-      - package-linux-x86_64
+      - package-linux-native
       - test-linux-x86_64
       - test-linux-arm64
     runs-on: ubuntu-latest
@@ -258,7 +276,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
         with:
-          name: build-result-linux-x86_64-merged
+          name: build-result-native-merged
           path: target/staging-deploy
       - name: Merge multiple local repositories
         run: ./merge-artifacts.sh
