@@ -106,7 +106,7 @@ windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
         -DFAT_RUNTIME=off \
         -DPYTHON_EXECUTABLE="$(command -v python)" \
         -DCMAKE_C_FLAGS="$ARCH_FLAGS" \
-        -DCMAKE_CXX_FLAGS="$ARCH_FLAGS" \
+        -DCMAKE_CXX_FLAGS="$ARCH_FLAGS /EHsc" \
         .
 
   cmake --build . --config Release --target install -- -maxcpucount:$THREADS
