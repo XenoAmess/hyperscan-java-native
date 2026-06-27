@@ -141,13 +141,13 @@ VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 # Repackage baseline native directory so the runtime Loader can find it under
 # the windows-x86_64-baseline platform.
 if [ "$CLASSIFIER" != "$JAVACPP_PLATFORM" ]; then
-  STAGING_DIR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}"
+  STAGING_DIR="target/staging-deploy/com/xenoamess/hyperscan/native/${VERSION}"
   BASE_JAR="${STAGING_DIR}/native-${VERSION}-${JAVACPP_PLATFORM}.jar"
   TARGET_JAR="${STAGING_DIR}/native-${VERSION}-${CLASSIFIER}.jar"
   if [ -f "$BASE_JAR" ]; then
     TMPDIR=$(mktemp -d)
     unzip -q -o "$BASE_JAR" -d "$TMPDIR"
-    mv "${TMPDIR}/com/gliwka/hyperscan/jni/${JAVACPP_PLATFORM}" "${TMPDIR}/com/gliwka/hyperscan/jni/${CLASSIFIER}"
+    mv "${TMPDIR}/com/xenoamess/hyperscan/jni/${JAVACPP_PLATFORM}" "${TMPDIR}/com/xenoamess/hyperscan/jni/${CLASSIFIER}"
     (cd "$TMPDIR" && zip -r "$TARGET_JAR" .)
     rm -rf "$TMPDIR"
     rm -f "$BASE_JAR"

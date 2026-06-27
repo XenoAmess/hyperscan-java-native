@@ -20,7 +20,7 @@
  * limitations under the License.
  */
 
-package com.gliwka.hyperscan.jni;
+package com.xenoamess.hyperscan.jni;
 
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.annotation.Platform;
@@ -50,8 +50,8 @@ import org.bytedeco.javacpp.tools.InfoMapper;
                         link = {"hs", "hs_runtime"}
                 )
         },
-        target = "com.gliwka.hyperscan.jni",
-        global = "com.gliwka.hyperscan.jni.hyperscan"
+        target = "com.xenoamess.hyperscan.jni",
+        global = "com.xenoamess.hyperscan.jni.hyperscan"
 )
 public class JavaCppPreset implements InfoMapper {
     public void map(InfoMap infoMap) {

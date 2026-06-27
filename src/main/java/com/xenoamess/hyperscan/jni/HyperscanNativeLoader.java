@@ -1,4 +1,4 @@
-package com.gliwka.hyperscan.jni;
+package com.xenoamess.hyperscan.jni;
 
 import org.bytedeco.javacpp.Loader;
 

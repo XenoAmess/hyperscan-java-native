@@ -1,4 +1,4 @@
-package com.gliwka.hyperscan.jni;
+package com.xenoamess.hyperscan.jni;
 
 import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.Cast;
@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.gliwka.hyperscan.jni.hyperscan.*;
+import static com.xenoamess.hyperscan.jni.hyperscan.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SmokeTest {

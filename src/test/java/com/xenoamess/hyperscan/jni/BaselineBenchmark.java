@@ -1,4 +1,4 @@
-package com.gliwka.hyperscan.jni;
+package com.xenoamess.hyperscan.jni;
 
 import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.Cast;
@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.gliwka.hyperscan.jni.hyperscan.*;
+import static com.xenoamess.hyperscan.jni.hyperscan.*;
 
 /**
  * Benchmark to compare baseline (SSE4.2) vs advanced ISA (AVX2/AVX-512) hyperscan builds.
@@ -21,7 +21,7 @@ import static com.gliwka.hyperscan.jni.hyperscan.*;
  * 2. mixed:  patterns that match occasionally -> measures realistic throughput.
  *
  * Usage:
- *   java -cp ... com.gliwka.hyperscan.jni.BaselineBenchmark [options]
+ *   java -cp ... com.xenoamess.hyperscan.jni.BaselineBenchmark [options]
  *
  * Options:
  *   --patterns N          number of patterns to compile (default 100)

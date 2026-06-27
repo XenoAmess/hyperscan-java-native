@@ -1,10 +1,17 @@
 project:
-  version: 5.4.12-2.0.4-x3
+  version: 5.4.12-2.0.4-x4
   languages:
     java:
       version: "8"
-      groupId: com.gliwka.hyperscan
+      groupId: com.xenoamess.hyperscan
       artifactId: hyperscan-java-native
+  name: hyperscan-java-native
+  description: Native libraries for hyperscan java bindings
+  links:
+    homepage: https://github.com/XenoAmess/hyperscan-java-native
+  license: BSD-3-Clause
+  authors:
+    - XenoAmess
 deploy:
   maven:
     mavenCentral:
@@ -16,7 +23,7 @@ deploy:
         stagingRepositories:
           - target/staging-deploy
         verifyUrl: 'https://repo1.maven.org/maven2/{{path}}/{{filename}}'
-        namespace: com.gliwka
+        namespace: com.xenoamess
 signing:
   active: ALWAYS
   mode: MEMORY
