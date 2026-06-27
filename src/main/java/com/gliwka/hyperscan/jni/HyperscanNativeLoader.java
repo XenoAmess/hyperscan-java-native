@@ -104,14 +104,11 @@ public final class HyperscanNativeLoader {
     private static String selectWindowsX86_64Variant() {
         Set<String> flags = readWindowsCpuFlags();
 
-        if (flags.containsAll(LINUX_X86_64_AVX512VBMI_FLAGS)) {
-            return "windows-x86_64";
-        }
-        if (flags.containsAll(LINUX_X86_64_AVX512_FLAGS)) {
-            return "windows-x86_64";
-        }
+        // Intel Hyperscan 5.4.2 does not provide a working AVX-512 MSVC build,
+        // so we ship only baseline (SSE4.2-class) and AVX2 tiers. Both AVX2 and
+        // AVX-512 capable hosts use the AVX2 build published as windows-x86_64.
         if (flags.containsAll(LINUX_X86_64_AVX2_FLAGS)) {
-            return "windows-x86_64-avx2";
+            return "windows-x86_64";
         }
 
         return "windows-x86_64-baseline";

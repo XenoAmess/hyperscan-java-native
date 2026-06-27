@@ -5,7 +5,7 @@
 | 文档版本 | v1.1 |
 | 适用范围 | `hyperscan-java-native`（fork） 未来版本 |
 | 仓库根 | `/home/xenoamess/workspace/hyperscan-java-native` |
-| 状态 | 计划中 |
+| 状态 | 已实施（baseline + AVX2；AVX-512 暂不支持） |
 
 ---
 
@@ -32,10 +32,9 @@
 | 等级 | classifier | 最低指令集 | 代表微架构 |
 |------|-----------|-----------|-----------|
 | 1 | `windows-x86_64-baseline` | SSE4.2 + POPCNT | Intel Westmere / AMD Bulldozer |
-| 2 | `windows-x86_64-avx2` | AVX2 + BMI2 | Intel Haswell / AMD Zen |
-| 3 | `windows-x86_64` | AVX-512（F/BW/VL）+ VBMI | Intel Skylake-X / Ice Lake |
+| 2 | `windows-x86_64` | AVX2 + BMI2 | Intel Haswell / AMD Zen |
 
-Windows 无 Linux 的 `ifunc` fat runtime，因此每个 variant 是独立编译的静态/动态库，由 Java 运行时根据 CPU 特性选择。
+Windows 无 Linux 的 `ifunc` fat runtime，因此每个 variant 是独立编译的静态/动态库，由 Java 运行时根据 CPU 特性选择。AVX-512 暂不支持：Intel Hyperscan 5.4.2 的 MSVC 路径在 `cmake/arch.cmake` 中未设置 `SKYLAKE_FLAG`，开启 `BUILD_AVX512` 会直接失败。
 
 ### 2.2 Windows arm64
 
@@ -49,7 +48,6 @@ Windows 无 Linux 的 `ifunc` fat runtime，因此每个 variant 是独立编译
 
 ```java
 "windows-x86_64",
-"windows-x86_64-avx2",
 "windows-x86_64-baseline",
 ```
 
@@ -81,10 +79,11 @@ if (isWindows && isX86_64) {
 
 | CPU 特性 | 选用的 variant |
 |----------|---------------|
-| `avx512f` + `avx512bw` + `avx512vl` (+ `avx512vbmi`) | `windows-x86_64` |
-| `avx2` + `bmi2` | `windows-x86_64-avx2` |
+| `avx2` + `bmi2` | `windows-x86_64` |
 | `sse4_2` + `popcnt` | `windows-x86_64-baseline` |
 | 其他 | `windows-x86_64-baseline` |
+
+> 注：AVX-512 主机也回退到 `windows-x86_64`（AVX2 构建），因为上游 Intel Hyperscan 5.4.2 在 MSVC 下暂无法编译 AVX-512 variant。
 
 实现方式候选：
 - 使用 JNA 调用 `kernel32.GetNativeSystemInfo` + `IsProcessorFeaturePresent`；
@@ -112,11 +111,10 @@ CMake 参数按 tier 区分：
 
 | variant | MSVC arch flag | `BUILD_AVX2` | `BUILD_AVX512` | `BUILD_AVX512VBMI` | `FAT_RUNTIME` |
 |---------|---------------|--------------|----------------|--------------------|---------------|
-| `windows-x86_64-baseline` | `/arch:AVX` 或默认 x86_64 | OFF | OFF | OFF | OFF |
-| `windows-x86_64-avx2` | `/arch:AVX2` | ON | OFF | OFF | OFF |
-| `windows-x86_64` | `/arch:AVX512` | ON | ON | ON | OFF |
+| `windows-x86_64-baseline` | 默认 x86_64 | OFF | OFF | OFF | OFF |
+| `windows-x86_64` | `/arch:AVX2` | ON | OFF | OFF | OFF |
 
-> MSVC 的 `/arch` 选项无法直接指定 SSE4.2；Hyperscan 的 SSE4.2 代码通过 intrinsic 编译，只要目标 CPU 支持即可。baseline 使用默认 x86_64 或 `/arch:AVX` 编译，运行时仍要求 SSE4.2 + POPCNT。
+> MSVC 的 `/arch` 选项无法直接指定 SSE4.2；Hyperscan 的 SSE4.2 代码通过 intrinsic 编译，只要目标 CPU 支持即可。baseline 使用默认 x86_64 编译，运行时仍要求 SSE4.2 + POPCNT。
 
 ### 5.2 头文件来源
 
@@ -134,9 +132,6 @@ CMake 参数按 tier 区分：
 - os: windows
   runner: windows-latest
   platform: windows-x86_64-baseline
-- os: windows
-  runner: windows-latest
-  platform: windows-x86_64-avx2
 - os: windows
   runner: windows-latest
   platform: windows-x86_64
@@ -168,7 +163,7 @@ CMake 参数按 tier 区分：
 ### 6.4 测试 job
 
 新增：
-- `test-windows-x86_64`：在 `windows-latest` runner 上跑 `EndToEndTest`，覆盖 default / baseline / avx2。
+- `test-windows-x86_64`：在 `windows-latest` runner 上跑 `EndToEndTest`，覆盖 default / baseline。
 
 ### 6.5 publish job
 
@@ -194,7 +189,7 @@ native-<version>-sources.jar
 native-<version>-javadoc.jar
 native-<version>-linux-x86_64.jar     # 含 linux-x86_64 / linux-x86_64-avx2 / linux-x86_64-baseline
 native-<version>-linux-arm64.jar      # 含 linux-arm64 / linux-arm64-baseline
-native-<version>-windows-x86_64.jar   # 含 windows-x86_64 / windows-x86_64-avx2 / windows-x86_64-baseline
+native-<version>-windows-x86_64.jar   # 含 windows-x86_64 / windows-x86_64-baseline
 ```
 
 Windows classifier jar 内部结构示例：
@@ -203,10 +198,6 @@ Windows classifier jar 内部结构示例：
 com/gliwka/hyperscan/jni/windows-x86_64/hs.dll
 com/gliwka/hyperscan/jni/windows-x86_64/hs_runtime.dll
 com/gliwka/hyperscan/jni/windows-x86_64/jnihyperscan.dll
-
-com/gliwka/hyperscan/jni/windows-x86_64-avx2/hs.dll
-com/gliwka/hyperscan/jni/windows-x86_64-avx2/hs_runtime.dll
-com/gliwka/hyperscan/jni/windows-x86_64-avx2/jnihyperscan.dll
 
 com/gliwka/hyperscan/jni/windows-x86_64-baseline/hs.dll
 ...
@@ -230,7 +221,7 @@ com/gliwka/hyperscan/jni/windows-x86_64-baseline/hs.dll
 ## 9. 实施顺序
 
 1. **PoC**：在 GitHub Actions `windows-latest` 上只编译 `windows-x86_64-baseline`，验证 `EndToEndTest` 能跑通。
-2. **扩展 x86_64**：补齐 `windows-x86_64-avx2` / `windows-x86_64`。
+2. **扩展 x86_64**：补齐 `windows-x86_64`（AVX2），放弃 AVX-512（上游 MSVC 路径不支持）。
 3. **加载器**：实现 Windows x86_64 CPU 特性检测。
 4. **CI 集成**：更新 workflow、聚合 job、测试 job、publish job。
 5. **文档与发布**：更新架构文档，bump 版本，打 tag 发版。

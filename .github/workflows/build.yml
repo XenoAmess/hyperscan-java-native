@@ -37,9 +37,6 @@ jobs:
             platform: windows-x86_64-baseline
           - os: windows
             runner: windows-latest
-            platform: windows-x86_64-avx2
-          - os: windows
-            runner: windows-latest
             platform: windows-x86_64
     env:
       DETECTED_PLATFORM: ${{ matrix.platform }}
@@ -182,22 +179,19 @@ jobs:
           (cd "$MERGE_DIR" && zip -r "$GROUP_DIR/native-${VERSION}-linux-arm64.jar" .)
           rm -rf "$MERGE_DIR"
 
-          # Locate the three windows-x86_64 variant classifier jars.
+          # Locate the two windows-x86_64 variant classifier jars.
           WIN_BASELINE_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-windows-x86_64-baseline.jar" | head -n1)
-          WIN_AVX2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-windows-x86_64-avx2.jar" | head -n1)
-          WIN_AVX512_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-windows-x86_64.jar" | head -n1)
-          for F in "$WIN_BASELINE_JAR" "$WIN_AVX2_JAR" "$WIN_AVX512_JAR"; do
+          WIN_AVX2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-windows-x86_64.jar" | head -n1)
+          for F in "$WIN_BASELINE_JAR" "$WIN_AVX2_JAR"; do
             if [ -z "$F" ] || [ ! -f "$F" ]; then
               echo "ERROR: missing windows-x86_64 variant classifier jar"
               exit 1
             fi
           done
 
-          # Merge the three windows-x86_64 variant native directories into one windows-x86_64 classifier jar.
+          # Merge the two windows-x86_64 variant native directories into one windows-x86_64 classifier jar.
           MERGE_DIR=$(mktemp -d)
-          echo "Merging windows-x86_64 AVX-512 base from $WIN_AVX512_JAR"
-          unzip -q -o "$WIN_AVX512_JAR" -d "$MERGE_DIR"
-          echo "Overlaying windows-x86_64 AVX2 from $WIN_AVX2_JAR"
+          echo "Merging windows-x86_64 AVX2 base from $WIN_AVX2_JAR"
           unzip -q -o "$WIN_AVX2_JAR" -d "$MERGE_DIR"
           echo "Overlaying windows-x86_64 baseline from $WIN_BASELINE_JAR"
           unzip -q -o "$WIN_BASELINE_JAR" -d "$MERGE_DIR"
@@ -364,9 +358,6 @@ jobs:
 
           echo "=== forced windows-x86_64-baseline ==="
           java -Dorg.bytedeco.javacpp.platform=windows-x86_64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
-
-          echo "=== forced windows-x86_64-avx2 ==="
-          java -Dorg.bytedeco.javacpp.platform=windows-x86_64-avx2 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
 
   publish:
     if: contains(github.ref, 'refs/tags/v')

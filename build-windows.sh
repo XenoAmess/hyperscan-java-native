@@ -22,7 +22,7 @@ cross_platform_nproc() {
   case $DETECTED_PLATFORM in
     macosx-x86_64|macosx-arm64) echo $(sysctl -n hw.logicalcpu) ;;
     linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64|linux-arm64-baseline) echo $(nproc --all) ;;
-    windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline) echo $(nproc --all) ;;
+    windows-x86_64|windows-x86_64-baseline) echo $(nproc --all) ;;
     *) echo Unsupported Platform: $DETECTED_PLATFORM >&2 ; exit -1 ;;
   esac
 }
@@ -33,7 +33,7 @@ cross_platform_check_sha() {
   case $DETECTED_PLATFORM in
     macosx-x86_64|macosx-arm64) echo "$sha  $file" | shasum -a 256 -c ;;
     linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64|linux-arm64-baseline) echo "$sha  $file" | sha256sum -c ;;
-    windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline) echo "$sha  $file" | sha256sum -c ;;
+    windows-x86_64|windows-x86_64-baseline) echo "$sha  $file" | sha256sum -c ;;
     *) echo Unsupported Platform: $DETECTED_PLATFORM >&2 ; exit -1 ;;
   esac
 }
@@ -65,7 +65,7 @@ cd hyperscan
 > cmake/sqlite3.cmake
 
 case $DETECTED_PLATFORM in
-windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
+windows-x86_64|windows-x86_64-baseline)
   # The upstream Intel Hyperscan CMakeLists always adds unit/tools/chimera,
   # which require PCRE. We only need the runtime/compile libraries, so remove
   # those optional subdirectories.
@@ -73,6 +73,10 @@ windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
   sed -i '/add_subdirectory(tools)/d' CMakeLists.txt
   sed -i '/add_subdirectory(chimera)/d' CMakeLists.txt
 
+  # Intel Hyperscan 5.4.2 does not support AVX-512 on Windows (its MSVC path
+  # in cmake/arch.cmake does not set SKYLAKE_FLAG). Build two tiers only:
+  # baseline (SSE4.2/NEON-class) and AVX2. The AVX2 build is published under
+  # the plain windows-x86_64 classifier.
   case $DETECTED_PLATFORM in
     windows-x86_64-baseline)
       ARCH_FLAGS=""
@@ -80,17 +84,11 @@ windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
       BUILD_AVX512=OFF
       BUILD_AVX512VBMI=OFF
       ;;
-    windows-x86_64-avx2)
+    windows-x86_64)
       ARCH_FLAGS="-arch:AVX2"
       BUILD_AVX2=ON
       BUILD_AVX512=OFF
       BUILD_AVX512VBMI=OFF
-      ;;
-    windows-x86_64)
-      ARCH_FLAGS="-arch:AVX512"
-      BUILD_AVX2=ON
-      BUILD_AVX512=ON
-      BUILD_AVX512VBMI=ON
       ;;
   esac
 
@@ -110,6 +108,11 @@ windows-x86_64|windows-x86_64-avx2|windows-x86_64-baseline)
         .
 
   cmake --build . --config Release --target install -- -maxcpucount:$THREADS
+
+  # CMake installs import libraries into lib/ but the runtime DLLs into bin/.
+  # JavaCPP's copyLibs step looks in linkPath (lib/) for .dll files, so copy
+  # the DLLs alongside the import libraries.
+  cp "$(pwd)/../bin/"*.dll "$(pwd)/../lib/" 2>/dev/null || true
   ;;
 *)
   echo "Error: Arch \"$DETECTED_PLATFORM\" is not supported by build-windows.sh"
