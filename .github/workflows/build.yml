@@ -161,9 +161,98 @@ jobs:
           name: build-result-linux-x86_64-merged
           path: target/staging-deploy
 
+  test-linux-x86_64:
+    name: Test linux-x86_64 variants
+    needs: package-linux-x86_64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          name: build-result-linux-x86_64-merged
+          path: target/staging-deploy
+      - name: Build test classpath
+        run: mvn -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -DincludeScope=test
+      - name: Prepare classes and run end-to-end tests
+        run: |
+          set -euo pipefail
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          MAIN_JAR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}/native-${VERSION}.jar"
+          CLASSIFIER_JAR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}/native-${VERSION}-linux-x86_64.jar"
+
+          if [ ! -f "$MAIN_JAR" ] || [ ! -f "$CLASSIFIER_JAR" ]; then
+            echo "ERROR: missing artifact jar"
+            exit 1
+          fi
+
+          mkdir -p target/classes target/test-classes target/native-test
+          unzip -q -o "$MAIN_JAR" -d target/classes
+          unzip -q -o "$CLASSIFIER_JAR" -d target/native-test
+
+          javac -cp "target/classes:$(cat target/cp.txt)" -d target/test-classes \
+            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java
+
+          CP="target/classes:target/test-classes:target/native-test:$(cat target/cp.txt)"
+
+          echo "=== default platform ==="
+          java -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
+          echo "=== forced linux-x86_64-baseline ==="
+          java -Dorg.bytedeco.javacpp.platform=linux-x86_64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
+          echo "=== forced linux-x86_64-avx2 ==="
+          java -Dorg.bytedeco.javacpp.platform=linux-x86_64-avx2 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
+  test-linux-arm64:
+    name: Test linux-arm64 variant
+    needs: package-linux-x86_64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          name: build-result-linux-x86_64-merged
+          path: target/staging-deploy
+      - name: Build test classpath
+        run: mvn -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -DincludeScope=test
+      - name: Prepare classes and run end-to-end tests
+        run: |
+          set -euo pipefail
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          MAIN_JAR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}/native-${VERSION}.jar"
+          CLASSIFIER_JAR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}/native-${VERSION}-linux-arm64.jar"
+
+          if [ ! -f "$MAIN_JAR" ] || [ ! -f "$CLASSIFIER_JAR" ]; then
+            echo "ERROR: missing artifact jar"
+            exit 1
+          fi
+
+          mkdir -p target/classes target/test-classes target/native-test
+          unzip -q -o "$MAIN_JAR" -d target/classes
+          unzip -q -o "$CLASSIFIER_JAR" -d target/native-test
+
+          javac -cp "target/classes:$(cat target/cp.txt)" -d target/test-classes \
+            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java
+
+          CP="target/classes:target/test-classes:target/native-test:$(cat target/cp.txt)"
+
+          echo "=== default arm64 platform ==="
+          java -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
   publish:
     if: contains(github.ref, 'refs/tags/v')
-    needs: package-linux-x86_64
+    needs:
+      - package-linux-x86_64
+      - test-linux-x86_64
+      - test-linux-arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
