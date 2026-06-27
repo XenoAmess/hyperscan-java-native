@@ -152,8 +152,8 @@
                             <target>
                                 <replaceregexp
                                     file="${project.build.directory}/generated-sources/com/gliwka/hyperscan/jni/hyperscan.java"
-                                    match="static\\s*\\{\\s*Loader\\.load\\(\\)\\s*;\\s*\\}"
-                                    replace="static { HyperscanNativeLoader.load(); }"
+                                    match="Loader\.load\(\)"
+                                    replace="HyperscanNativeLoader.load()"
                                     byline="false"
                                     flags="g"
                                 />
