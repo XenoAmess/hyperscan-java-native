@@ -60,7 +60,7 @@ jobs:
         if: matrix.os == 'windows'
         shell: bash
         run: |
-          C:/msys64/usr/bin/bash.exe -lc "pacman -S --noconfirm ragel"
+          C:/msys64/usr/bin/bash.exe -lc "pacman -Sy --noconfirm mingw-w64-ucrt-x86_64-ragel"
       - name: Setup MSVC dev command prompt
         if: matrix.os == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -70,7 +70,7 @@ jobs:
         if: matrix.os == 'windows'
         shell: bash
         run: |
-          export PATH="/c/msys64/usr/bin:$PATH"
+          export PATH="/c/msys64/ucrt64/bin:/c/msys64/usr/bin:$PATH"
           ./build-windows.sh
       - name: Verify ISA per variant
         if: matrix.os == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
