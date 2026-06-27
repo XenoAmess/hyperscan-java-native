@@ -21,7 +21,7 @@ export DETECTED_PLATFORM=${DETECTED_PLATFORM:-$(detect_platform)}
 cross_platform_nproc() {
   case $DETECTED_PLATFORM in
     macosx-x86_64|macosx-arm64) echo $(sysctl -n hw.logicalcpu) ;;
-    linux-x86_64|linux-arm64) echo $(nproc --all) ;;
+    linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64) echo $(nproc --all) ;;
     *) echo Unsupported Platform: $DETECTED_PLATFORM >&2 ; exit -1 ;;
   esac
 }
@@ -31,7 +31,7 @@ cross_platform_check_sha() {
   local file=$2
   case $DETECTED_PLATFORM in
     macosx-x86_64|macosx-arm64) echo "$sha  $file" | shasum -a 256 -c ;;
-    linux-x86_64|linux-arm64) echo "$sha  $file" | sha256sum -c ;;
+    linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline|linux-arm64) echo "$sha  $file" | sha256sum -c ;;
     *) echo Unsupported Platform: $DETECTED_PLATFORM >&2 ; exit -1 ;;
   esac
 }
@@ -78,35 +78,59 @@ cd vectorscan
 # - vectorscan sets -march=x86-64-v2 when FAT_RUNTIME=off and AVX is disabled,
 #   but GCC 9 does not recognize that alias. Use westmere instead.
 # - GCC 9 supports -Wno-stringop-overflow but not -Wno-stringop-overread.
-sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
 sed -i 's/-Wno-stringop-overread//' cmake/cflags-generic.cmake
 
 case $DETECTED_PLATFORM in
-linux-x86_64)
-  # Baseline-only build: SSE4.2 + POPCNT (Westmere, 2010+). See doc/architecture/linux-x86_64-baseline.md
+linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
+  # Determine SIMD tier for this linux-x86_64 variant.
+  # See docs/architecture/linux-x86_64-multi-variant.md
+  case $DETECTED_PLATFORM in
+    linux-x86_64-baseline)
+      MARCH="westmere"
+      BUILD_AVX2=OFF
+      BUILD_AVX512=OFF
+      BUILD_AVX512VBMI=OFF
+      # x86-64-v2 alias is not understood by GCC 9; replace with westmere.
+      sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
+      ;;
+    linux-x86_64-avx2)
+      MARCH="haswell"
+      BUILD_AVX2=ON
+      BUILD_AVX512=OFF
+      BUILD_AVX512VBMI=OFF
+      ;;
+    linux-x86_64)
+      MARCH="skylake-avx512"
+      BUILD_AVX2=ON
+      BUILD_AVX512=ON
+      BUILD_AVX512VBMI=ON
+      ;;
+  esac
+
   cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
         -DCMAKE_INSTALL_LIBDIR="lib" \
         -DPCRE_SOURCE="." \
         -DFAT_RUNTIME=off \
         -DBUILD_SHARED_LIBS=on \
-        -DBUILD_AVX2=OFF \
-        -DBUILD_AVX512=OFF \
-        -DBUILD_AVX512VBMI=OFF \
+        -DBUILD_AVX2=$BUILD_AVX2 \
+        -DBUILD_AVX512=$BUILD_AVX512 \
+        -DBUILD_AVX512VBMI=$BUILD_AVX512VBMI \
         -DBUILD_BENCHMARKS=false \
         -DBUILD_EXAMPLES=false \
         -DBUILD_TOOLS=false \
-        -DCMAKE_C_FLAGS="-march=westmere" \
-        -DCMAKE_CXX_FLAGS="-march=westmere" \
+        -DCMAKE_C_FLAGS="-march=$MARCH" \
+        -DCMAKE_CXX_FLAGS="-march=$MARCH" \
         .
   make -j $THREADS all unit install/strip
-
   ;;
 linux-arm64)
+  sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
   CC="clang" CXX="clang++" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/.." -DCMAKE_INSTALL_LIBDIR="lib" -DPCRE_SOURCE="." -DFAT_RUNTIME=on -DBUILD_SHARED_LIBS=on -DBUILD_SVE=on -DBUILD_SVE2=on .
   make -j $THREADS all unit install/strip
   ;;
 macosx-x86_64|macosx-arm64)
+  sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
   export MACOSX_DEPLOYMENT_TARGET=12
   cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/.." -DCMAKE_INSTALL_LIBDIR="lib" -DARCH_OPT_FLAGS='-Wno-error' -DPCRE_SOURCE="." -DBUILD_SHARED_LIBS=on . -DFAT_RUNTIME=off -DBUILD_BENCHMARKS=false
   make -j $THREADS all unit install/strip

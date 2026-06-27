@@ -2,10 +2,12 @@
 
 | 字段       | 值                                          |
 | ---------- | ------------------------------------------- |
-| 文档版本   | v1.1                                        |
-| 适用范围   | `hyperscan-java-native`（fork） 5.4.12-2.0.4+ |
+| 文档版本   | v1.2                                        |
+| 适用范围   | `hyperscan-java-native`（fork） 5.4.12-2.0.4-x2+ |
 | 仓库根     | `/home/xenoamess/workspace/hyperscan-java-native` |
-| 状态       | 待评审                                      |
+| 状态       | 已纳入多 variant 方案                       |
+
+> 注：本方案描述的 SSE4.2 baseline 构建仍是仓库的一部分，但已不再是唯一的 x86_64 产物。当前完整设计见 `docs/architecture/linux-x86_64-multi-variant.md`。
 
 ---
 

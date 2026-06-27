@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <groupId>com.gliwka.hyperscan</groupId>
     <artifactId>native</artifactId>
-    <version>5.4.12-2.0.4-x1</version>
+    <version>5.4.12-2.0.4-x2</version>
     <name>hyperscan-java-native</name>
     <description>Native libraries for hyperscan java bindings</description>
     <url>https://github.com/gliwka/hyperscan-java-native</url>
@@ -133,6 +133,31 @@
                           <outputDirectory>${project.build.directory}/native/com/gliwka/hyperscan/jni/${env.DETECTED_PLATFORM}/</outputDirectory>
                             <classOrPackageName>com.gliwka.hyperscan.jni.**</classOrPackageName>
                             <copyLibs>true</copyLibs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>patch-generated-hyperscan-loader</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <replaceregexp
+                                    file="${project.build.directory}/generated-sources/com/gliwka/hyperscan/jni/hyperscan.java"
+                                    match="static\\s*\\{\\s*Loader\\.load\\(\\)\\s*;\\s*\\}"
+                                    replace="static { HyperscanNativeLoader.load(); }"
+                                    byline="false"
+                                    flags="g"
+                                />
+                            </target>
                         </configuration>
                     </execution>
                 </executions>

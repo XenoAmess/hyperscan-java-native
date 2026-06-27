@@ -34,7 +34,14 @@ import org.bytedeco.javacpp.tools.InfoMapper;
         inherit = javacpp.class,
         value = {
                 @Platform(
-                        value = {"linux-x86_64", "linux-arm64", "macosx-x86_64", "macosx-arm64"},
+                        value = {
+                                "linux-x86_64",
+                                "linux-x86_64-avx2",
+                                "linux-x86_64-baseline",
+                                "linux-arm64",
+                                "macosx-x86_64",
+                                "macosx-arm64"
+                        },
                         compiler = "cpp11",
                         include = {"hs/hs_common.h", "hs/hs_compile.h", "hs/hs_runtime.h", "hs/hs.h"},
                         link = {"hs", "hs_runtime"}
@@ -44,10 +51,6 @@ import org.bytedeco.javacpp.tools.InfoMapper;
         global = "com.gliwka.hyperscan.jni.hyperscan"
 )
 public class JavaCppPreset implements InfoMapper {
-    static {
-        Loader.load();
-    }
-
     public void map(InfoMap infoMap) {
         infoMap.put(new Info("HS_CDECL").cppTypes().annotations());
     }

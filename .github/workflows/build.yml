@@ -12,69 +12,165 @@ jobs:
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
-        shell: ${{ matrix.shell }}
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: linux
             runner: ubuntu-24.04
-            shell: bash
+            platform: linux-x86_64-baseline
+          - os: linux
+            runner: ubuntu-24.04
+            platform: linux-x86_64-avx2
+          - os: linux
+            runner: ubuntu-24.04
             platform: linux-x86_64
           - os: linux
             runner: ubuntu-24.04-arm
-            shell: bash
             platform: linux-arm64
     env:
       DETECTED_PLATFORM: ${{ matrix.platform }}
       STAGING: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
-        if: matrix.os == 'macos'
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-          architecture: ${{ matrix.jdkArch }}
-      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd
-        if: matrix.os == 'macos'
-        with:
-          xcode-version: 16.2
-      - name: Build native binaries
-        if: matrix.os == 'macos'
-        run: ./build.sh
       - name: Build native binaries in centos container
         if: matrix.os == 'linux'
         uses: docker://ghcr.io/gliwka/centos7-toolchain:main@sha256:e6cf17223408bb4d1314be547d74b23d04bcf6480d2fe23822fb672a52775f76
         with:
           args: '"./build.sh"'
-      - name: Verify baseline ISA (no AVX/AVX2/AVX-512 in native libs)
-        if: matrix.os == 'linux' && matrix.platform == 'linux-x86_64'
+      - name: Verify ISA per variant
+        if: matrix.os == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
         run: |
           set -euo pipefail
-          find target/staging-deploy -path '*linux-x86_64*' -name '*.so' | while read -r SO; do
+          PLATFORM="${{ matrix.platform }}"
+          find target/staging-deploy -path "*${PLATFORM}*" -name '*.so' | while read -r SO; do
             echo "Inspecting $SO"
-            if objdump -d "$SO" | grep -E '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' > /dev/null 2>&1; then
-              echo "FAIL: $SO contains VEX/EVEX (AVX/AVX2/AVX-512) instructions"
-              objdump -d "$SO" | grep -nE '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' | head -10
-              exit 1
-            fi
+            case "$PLATFORM" in
+              linux-x86_64-baseline)
+                # No VEX/EVEX at all
+                if objdump -d "$SO" | grep -E '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' > /dev/null 2>&1; then
+                  echo "FAIL: $SO contains VEX/EVEX (AVX/AVX2/AVX-512) instructions"
+                  objdump -d "$SO" | grep -nE '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' | head -10
+                  exit 1
+                fi
+                ;;
+              linux-x86_64-avx2)
+                # VEX (AVX/AVX2) allowed, but no EVEX (AVX-512)
+                if objdump -d "$SO" | grep -E '^[[:space:]]+[0-9a-f]+:[[:space:]]+62[[:space:]]' > /dev/null 2>&1; then
+                  echo "FAIL: $SO contains EVEX (AVX-512) instructions"
+                  objdump -d "$SO" | grep -nE '^[[:space:]]+[0-9a-f]+:[[:space:]]+62[[:space:]]' | head -10
+                  exit 1
+                fi
+                ;;
+              linux-x86_64)
+                # AVX-512 build: any SIMD encoding is allowed
+                ;;
+            esac
           done
-          echo "PASS: no AVX/AVX2/AVX-512 instructions detected in linux-x86_64 .so files"
+          echo "PASS: ISA check passed for $PLATFORM"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: build-result-${{ matrix.platform }}
           path: target/staging-deploy
+
+  package-linux-x86_64:
+    name: Package unified linux-x86_64 jar
+    needs: build-native
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          path: target/variant-staging
+          merge-multiple: false
+      - name: Merge linux-x86_64 variants into unified jar
+        run: |
+          set -euo pipefail
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          GROUP_DIR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}"
+          mkdir -p "$GROUP_DIR"
+
+          # Locate the common artifacts (identical across variants) from the AVX-512 build.
+          MAIN_JAR=$(find target/variant-staging -type f -name "native-${VERSION}.jar" | head -n1)
+          SOURCES_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-sources.jar" | head -n1)
+          JAVADOC_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-javadoc.jar" | head -n1)
+          POM=$(find target/variant-staging -type f -name "native-${VERSION}.pom" | head -n1)
+          for F in "$MAIN_JAR" "$SOURCES_JAR" "$JAVADOC_JAR" "$POM"; do
+            if [ -z "$F" ] || [ ! -f "$F" ]; then
+              echo "ERROR: missing common artifact"
+              exit 1
+            fi
+            cp "$F" "$GROUP_DIR/"
+          done
+
+          # Locate the three x86_64 variant classifier jars.
+          BASELINE_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64-baseline.jar" | head -n1)
+          AVX2_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64-avx2.jar" | head -n1)
+          AVX512_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-x86_64.jar" | head -n1)
+          for F in "$BASELINE_JAR" "$AVX2_JAR" "$AVX512_JAR"; do
+            if [ -z "$F" ] || [ ! -f "$F" ]; then
+              echo "ERROR: missing variant classifier jar"
+              exit 1
+            fi
+          done
+
+          # Merge the three variant native directories into one linux-x86_64 classifier jar.
+          MERGE_DIR=$(mktemp -d)
+          echo "Merging AVX-512 base from $AVX512_JAR"
+          unzip -q -o "$AVX512_JAR" -d "$MERGE_DIR"
+          echo "Overlaying AVX2 from $AVX2_JAR"
+          unzip -q -o "$AVX2_JAR" -d "$MERGE_DIR"
+          echo "Overlaying baseline from $BASELINE_JAR"
+          unzip -q -o "$BASELINE_JAR" -d "$MERGE_DIR"
+          (cd "$MERGE_DIR" && zip -r "$GROUP_DIR/native-${VERSION}-linux-x86_64.jar" .)
+          rm -rf "$MERGE_DIR"
+
+          # Bring in the arm64 classifier jar (main/sources/javadoc are identical).
+          ARM64_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-linux-arm64.jar" | head -n1)
+          if [ -n "$ARM64_JAR" ] && [ -f "$ARM64_JAR" ]; then
+            echo "Copying arm64 classifier jar: $ARM64_JAR"
+            cp "$ARM64_JAR" "$GROUP_DIR/"
+          fi
+
+          # Recreate maven metadata for the local staging repository.
+          mkdir -p "target/staging-deploy/com/gliwka/hyperscan/native"
+          UPDATED=$(date -u +%Y%m%d%H%M%S)
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<metadata>' \
+            '  <groupId>com.gliwka.hyperscan</groupId>' \
+            '  <artifactId>native</artifactId>' \
+            '  <versioning>' \
+            "    <release>${VERSION}</release>" \
+            '    <versions>' \
+            "      <version>${VERSION}</version>" \
+            '    </versions>' \
+            "    <lastUpdated>${UPDATED}</lastUpdated>" \
+            '  </versioning>' \
+            '</metadata>' \
+            > "target/staging-deploy/com/gliwka/hyperscan/native/maven-metadata-local.xml"
+          echo "Staging repository prepared at target/staging-deploy"
+          find target/staging-deploy -type f
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: build-result-linux-x86_64-merged
+          path: target/staging-deploy
+
   publish:
     if: contains(github.ref, 'refs/tags/v')
-    needs: build-native
+    needs: package-linux-x86_64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
         with:
+          name: build-result-linux-x86_64-merged
           path: target/staging-deploy
-          merge-multiple: true
       - name: Merge multiple local repositories
         run: ./merge-artifacts.sh
       - uses: jreleaser/release-action@f69e545b05f149483cecb2fb81866247992694b8
