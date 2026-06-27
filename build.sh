@@ -142,4 +142,4 @@ esac
 
 cd ../..
 
-mvn -B -Dorg.bytedeco.javacpp.platform=$DETECTED_PLATFORM
+mvn -B -DskipTests -Dorg.bytedeco.javacpp.platform=$DETECTED_PLATFORM
