@@ -122,18 +122,18 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
         -DCMAKE_C_FLAGS="-march=$MARCH" \
         -DCMAKE_CXX_FLAGS="-march=$MARCH" \
         .
-  make -j $THREADS all unit install/strip
+  make -j $THREADS install/strip
   ;;
 linux-arm64)
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
   CC="clang" CXX="clang++" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/.." -DCMAKE_INSTALL_LIBDIR="lib" -DPCRE_SOURCE="." -DFAT_RUNTIME=on -DBUILD_SHARED_LIBS=on -DBUILD_SVE=on -DBUILD_SVE2=on .
-  make -j $THREADS all unit install/strip
+  make -j $THREADS install/strip
   ;;
 macosx-x86_64|macosx-arm64)
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
   export MACOSX_DEPLOYMENT_TARGET=12
   cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/.." -DCMAKE_INSTALL_LIBDIR="lib" -DARCH_OPT_FLAGS='-Wno-error' -DPCRE_SOURCE="." -DBUILD_SHARED_LIBS=on . -DFAT_RUNTIME=off -DBUILD_BENCHMARKS=false
-  make -j $THREADS all unit install/strip
+  make -j $THREADS install/strip
   ;;
 *)
   echo "Error: Arch \"$DETECTED_PLATFORM\" is not supported"
