@@ -122,4 +122,34 @@ esac
 
 cd ../..
 
-mvn -B -DskipTests -Dorg.bytedeco.javacpp.platform=$DETECTED_PLATFORM
+# JavaCPP only ships built-in properties for plain windows-x86_64. For the
+# baseline tier we still build with the standard windows-x86_64 compiler settings
+# (so cl.exe and .dll are used) and then repackage the native artifacts under the
+# windows-x86_64-baseline classifier.
+JAVACPP_PLATFORM="$DETECTED_PLATFORM"
+CLASSIFIER="$DETECTED_PLATFORM"
+case "$DETECTED_PLATFORM" in
+  windows-x86_64-baseline)
+    JAVACPP_PLATFORM="windows-x86_64"
+    ;;
+esac
+
+mvn -B -DskipTests -Dorg.bytedeco.javacpp.platform="$JAVACPP_PLATFORM"
+
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+
+# Repackage baseline native directory so the runtime Loader can find it under
+# the windows-x86_64-baseline platform.
+if [ "$CLASSIFIER" != "$JAVACPP_PLATFORM" ]; then
+  STAGING_DIR="target/staging-deploy/com/gliwka/hyperscan/native/${VERSION}"
+  BASE_JAR="${STAGING_DIR}/native-${VERSION}-${JAVACPP_PLATFORM}.jar"
+  TARGET_JAR="${STAGING_DIR}/native-${VERSION}-${CLASSIFIER}.jar"
+  if [ -f "$BASE_JAR" ]; then
+    TMPDIR=$(mktemp -d)
+    unzip -q -o "$BASE_JAR" -d "$TMPDIR"
+    mv "${TMPDIR}/com/gliwka/hyperscan/jni/${JAVACPP_PLATFORM}" "${TMPDIR}/com/gliwka/hyperscan/jni/${CLASSIFIER}"
+    (cd "$TMPDIR" && zip -r "$TARGET_JAR" .)
+    rm -rf "$TMPDIR"
+    rm -f "$BASE_JAR"
+  fi
+fi
