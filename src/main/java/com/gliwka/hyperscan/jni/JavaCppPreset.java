@@ -56,5 +56,9 @@ import org.bytedeco.javacpp.tools.InfoMapper;
 public class JavaCppPreset implements InfoMapper {
     public void map(InfoMap infoMap) {
         infoMap.put(new Info("HS_CDECL").cppTypes().annotations());
+        // The Intel Hyperscan Windows build does not export hs_compile_lit* in
+        // the hs static library, causing link errors. They are not used by the
+        // wrapper, so skip them for all platforms.
+        infoMap.put(new Info("hs_compile_lit", "hs_compile_lit_multi").skip());
     }
 }
