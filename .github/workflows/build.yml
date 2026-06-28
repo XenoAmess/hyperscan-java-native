@@ -200,21 +200,6 @@ jobs:
 
           # Recreate maven metadata for the local staging repository.
           mkdir -p "target/staging-deploy/com/xenoamess/hyperscan/native"
-          UPDATED=$(date -u +%Y%m%d%H%M%S)
-          printf '%s\n' \
-            '<?xml version="1.0" encoding="UTF-8"?>' \
-            '<metadata>' \
-            '  <groupId>com.xenoamess.hyperscan</groupId>' \
-            '  <artifactId>native</artifactId>' \
-            '  <versioning>' \
-            "    <release>${VERSION}</release>" \
-            '    <versions>' \
-            "      <version>${VERSION}</version>" \
-            '    </versions>' \
-            "    <lastUpdated>${UPDATED}</lastUpdated>" \
-            '  </versioning>' \
-            '</metadata>' \
-            > "target/staging-deploy/com/xenoamess/hyperscan/native/maven-metadata-local.xml"
           echo "Staging repository prepared at target/staging-deploy"
           find target/staging-deploy -type f
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
