@@ -1,10 +1,10 @@
 project:
-  version: 5.4.12-2.0.4-x4
+  version: 5.4.12-2.0.4-x5
   languages:
     java:
       version: "8"
       groupId: com.xenoamess.hyperscan
-      artifactId: hyperscan-java-native
+      artifactId: native
   name: hyperscan-java-native
   description: Native libraries for hyperscan java bindings
   links:
