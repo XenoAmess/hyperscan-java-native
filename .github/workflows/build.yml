@@ -99,7 +99,7 @@ jobs:
             esac
           done
           echo "PASS: ISA check passed for $PLATFORM"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: build-result-${{ matrix.platform }}
           path: target/staging-deploy
@@ -202,7 +202,7 @@ jobs:
           mkdir -p "target/staging-deploy/com/xenoamess/hyperscan/native"
           echo "Staging repository prepared at target/staging-deploy"
           find target/staging-deploy -type f
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: build-result-native-merged
           path: target/staging-deploy
@@ -369,7 +369,7 @@ jobs:
           JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.SIGN_KEY }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.SIGN_KEY_PASS }}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: releaser
           path: |
