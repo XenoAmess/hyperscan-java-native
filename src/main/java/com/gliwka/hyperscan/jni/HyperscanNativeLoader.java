@@ -17,12 +17,6 @@ public final class HyperscanNativeLoader {
     private static final Set<String> LINUX_X86_64_AVX2_FLAGS = new HashSet<>(
             Arrays.asList("avx2", "bmi2")
     );
-    private static final Set<String> LINUX_X86_64_AVX512_FLAGS = new HashSet<>(
-            Arrays.asList("avx512f", "avx512bw", "avx512vl")
-    );
-    private static final Set<String> LINUX_X86_64_AVX512VBMI_FLAGS = new HashSet<>(
-            Arrays.asList("avx512f", "avx512bw", "avx512vl", "avx512vbmi")
-    );
     private static final Set<String> LINUX_ARM64_SVE2_FLAGS = new HashSet<>(
             Arrays.asList("sve2")
     );
@@ -75,12 +69,10 @@ public final class HyperscanNativeLoader {
     private static String selectLinuxX86_64Variant() {
         Set<String> flags = readLinuxCpuFlags();
 
-        if (flags.containsAll(LINUX_X86_64_AVX512VBMI_FLAGS)) {
-            return "linux-x86_64";
-        }
-        if (flags.containsAll(LINUX_X86_64_AVX512_FLAGS)) {
-            return "linux-x86_64";
-        }
+        // Default to AVX2 even when AVX-512 is advertised: many virtualized or
+        // containerized environments expose AVX-512 flags but do not reliably
+        // execute AVX-512 instructions. Users who are sure their host supports
+        // it can force the AVX-512 build via -Dorg.bytedeco.javacpp.platform=linux-x86_64.
         if (flags.containsAll(LINUX_X86_64_AVX2_FLAGS)) {
             return "linux-x86_64-avx2";
         }
