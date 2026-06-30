@@ -114,7 +114,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           path: target/variant-staging
           merge-multiple: false
@@ -217,7 +217,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: build-result-native-merged
           path: target/staging-deploy
@@ -263,7 +263,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: build-result-native-merged
           path: target/staging-deploy
@@ -309,7 +309,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: build-result-native-merged
           path: target/staging-deploy
@@ -354,7 +354,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: build-result-native-merged
           path: target/staging-deploy
