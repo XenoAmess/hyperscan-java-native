@@ -15,6 +15,9 @@ updates:
     labels:
       - "dependencies"
       - "java"
+    ignore:
+      - dependency-name: "org.bytedeco:javacpp"
+      - dependency-name: "org.bytedeco:javacpp-platform"
 
   - package-ecosystem: "github-actions"
     directory: "/"
