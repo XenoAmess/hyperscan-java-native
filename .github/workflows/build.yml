@@ -360,7 +360,7 @@ jobs:
           path: target/staging-deploy
       - name: Merge multiple local repositories
         run: ./merge-artifacts.sh
-      - uses: jreleaser/release-action@f69e545b05f149483cecb2fb81866247992694b8
+      - uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5
         with:
           arguments: deploy --debug
         env:
