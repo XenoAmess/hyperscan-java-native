@@ -1,3 +1,5 @@
+[English](linux-x86_64-baseline-benchmark.en.md) | 中文
+
 # Linux x86_64 基线版性能对比报告
 
 | 字段 | 值 |
@@ -177,7 +179,7 @@ java -Djava.library.path=baseline-so/.../linux-x86_64 -cp "$CP" \
 
 ## 9. 参考资料
 
-- `doc/architecture/linux-x86_64-baseline.md`：改造方案设计文档
+- `doc/architecture/linux-x86_64-baseline.zh.md`：改造方案设计文档
 - `src/test/java/com/gliwka/hyperscan/jni/BaselineBenchmark.java`：本报告使用的 benchmark 源码
 - vectorscan 内部 matcher benchmark：`benchmarks/benchmarks.cpp`
 - 测试数据：Elastic Apache logs 示例、VectorCamp vectorscan `leipzig-3200.txt`

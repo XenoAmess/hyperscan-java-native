@@ -1,3 +1,5 @@
+[English](linux-x86_64-multi-variant.en.md) | 中文
+
 # Linux 多 Variant 改造方案
 
 | 字段 | 值 |
@@ -15,13 +17,13 @@
 
 为了在 SSE4.2 老 CPU 上可用、在 AVX2 主流 CPU 上满速、在 AVX-512 高端 CPU 上发挥最大性能，本仓库实施了三 variant 方案：同一个 Maven classifier jar 内同时打包三套 native library，运行时根据 CPU 能力自动选择。
 
-ARM64 端采用同样的思路拆分为 `linux-arm64-baseline`（ARMv8.0/NEON）与 `linux-arm64`（SVE2），详见 `docs/architecture/linux-arm64-multi-variant.md`。
+ARM64 端采用同样的思路拆分为 `linux-arm64-baseline`（ARMv8.0/NEON）与 `linux-arm64`（SVE2），详见 `docs/architecture/linux-arm64-multi-variant.zh.md`。
 
 ---
 
 ## 2. 为什么原版 `FAT_RUNTIME=on` 不够
 
-见 `docs/architecture/linux-x86_64-baseline.md` 与 `docs/architecture/investigating-avx-leak-in-original-jar.md`。核心问题：
+见 `docs/architecture/linux-x86_64-baseline.zh.md` 与 `docs/architecture/investigating-avx-leak-in-original-jar.zh.md`。核心问题：
 
 - 原版 `libhs.so` / `libhs_runtime.so` 含有 **20,000+ 条 EVEX（AVX-512）指令**泄漏到普通代码。
 - `FAT_RUNTIME` 只保护 `hs_scan` 等入口的 dispatch，挡不住这些泄漏。
@@ -63,7 +65,7 @@ com/gliwka/hyperscan/jni/linux-x86_64-baseline/libhs_runtime.so
 com/gliwka/hyperscan/jni/linux-x86_64-baseline/libjnihyperscan.so
 ```
 
-`linux-arm64` 也按同样思路拆分为 `linux-arm64-baseline` 与 `linux-arm64`，统一打包进 `native-<version>-linux-arm64.jar`，详见 `docs/architecture/linux-arm64-multi-variant.md`。
+`linux-arm64` 也按同样思路拆分为 `linux-arm64-baseline` 与 `linux-arm64`，统一打包进 `native-<version>-linux-arm64.jar`，详见 `docs/architecture/linux-arm64-multi-variant.zh.md`。
 
 ---
 
@@ -273,16 +275,16 @@ HyperscanNativeLoader.load();
 | `linux-x86_64-avx2` | +30%–50% | Haswell+/Zen+ |
 | `linux-x86_64` | +40%–60%（相对 baseline，视 AVX-512 场景） | Skylake-X+/Ice Lake+ |
 
-具体数据见 `docs/performance/linux-x86_64-baseline-benchmark.md`。
+具体数据见 `docs/performance/linux-x86_64-baseline-benchmark.zh.md`。
 
 ---
 
 ## 10. 参考资料
 
-- `docs/architecture/linux-x86_64-baseline.md`：单基线改造方案
-- `docs/architecture/linux-arm64-multi-variant.md`：ARM64 多 variant 改造方案
-- `docs/architecture/investigating-avx-leak-in-original-jar.md`：原版 jar 指令泄漏排查
-- `docs/performance/linux-x86_64-baseline-benchmark.md`：性能测试报告
+- `docs/architecture/linux-x86_64-baseline.zh.md`：单基线改造方案
+- `docs/architecture/linux-arm64-multi-variant.zh.md`：ARM64 多 variant 改造方案
+- `docs/architecture/investigating-avx-leak-in-original-jar.zh.md`：原版 jar 指令泄漏排查
+- `docs/performance/linux-x86_64-baseline-benchmark.zh.md`：性能测试报告
 - `src/main/java/com/gliwka/hyperscan/jni/HyperscanNativeLoader.java`：运行时加载器
 - `src/main/java/com/gliwka/hyperscan/jni/JavaCppPreset.java`：JavaCPP preset
 

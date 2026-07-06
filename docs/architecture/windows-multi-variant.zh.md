@@ -1,3 +1,5 @@
+[English](windows-multi-variant.en.md) | 中文
+
 # Windows 多 Variant 支持方案
 
 | 字段 | 值 |
@@ -230,8 +232,8 @@ com/gliwka/hyperscan/jni/windows-x86_64-baseline/hs.dll
 
 ## 10. 参考资料
 
-- `docs/architecture/linux-x86_64-multi-variant.md`
-- `docs/architecture/linux-arm64-multi-variant.md`
+- `docs/architecture/linux-x86_64-multi-variant.zh.md`
+- `docs/architecture/linux-arm64-multi-variant.zh.md`
 - `src/main/java/com/gliwka/hyperscan/jni/HyperscanNativeLoader.java`
 - `src/main/java/com/gliwka/hyperscan/jni/JavaCppPreset.java`
 - Intel Hyperscan releases: https://github.com/intel/hyperscan/releases

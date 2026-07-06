@@ -1,3 +1,5 @@
+[English](investigating-avx-leak-in-original-jar.en.md) | 中文
+
 # 排查原版 jar 指令集泄漏过程记录
 
 | 字段 | 值 |
@@ -351,9 +353,9 @@ done
 
 ## 11. 参考资料
 
-- `docs/architecture/linux-x86_64-baseline.md`：基线改造方案
-- `docs/architecture/linux-x86_64-multi-variant.md`：多 variant 改造方案
-- `docs/performance/linux-x86_64-baseline-benchmark.md`：性能测试报告
+- `docs/architecture/linux-x86_64-baseline.zh.md`：基线改造方案
+- `docs/architecture/linux-x86_64-multi-variant.zh.md`：多 variant 改造方案
+- `docs/performance/linux-x86_64-baseline-benchmark.zh.md`：性能测试报告
 - Intel SDM / AMD APM：x86-64 指令编码手册
 
 ---

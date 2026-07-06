@@ -1,3 +1,5 @@
+[English](linux-arm64-multi-variant.en.md) | 中文
+
 # Linux ARM64 多 Variant 改造方案
 
 | 字段 | 值 |
@@ -58,7 +60,7 @@ com/gliwka/hyperscan/jni/linux-arm64-baseline/libjnihyperscan.so
 
 ```bash
 linux-arm64|linux-arm64-baseline)
-  case $DETECTED_PLATFORM in
+  case "$DETECTED_PLATFORM" in
     linux-arm64-baseline)
       MARCH="armv8-a"
       BUILD_SVE=OFF
@@ -175,8 +177,8 @@ HyperscanNativeLoader.load();
 
 ## 8. 参考资料
 
-- `docs/architecture/linux-x86_64-multi-variant.md`：x86_64 三 variant 改造方案
-- `docs/architecture/linux-x86_64-baseline.md`：基线版改造方案
+- `docs/architecture/linux-x86_64-multi-variant.zh.md`：x86_64 三 variant 改造方案
+- `docs/architecture/linux-x86_64-baseline.zh.md`：基线版改造方案
 - `src/main/java/com/gliwka/hyperscan/jni/HyperscanNativeLoader.java`：运行时加载器
 - `src/main/java/com/gliwka/hyperscan/jni/JavaCppPreset.java`：JavaCPP preset
 

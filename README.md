@@ -2,6 +2,8 @@
 
 本仓库是 [gliwka/hyperscan-java-native](https://github.com/gliwka/hyperscan-java-native) 的维护分支，为 [hyperscan-java](https://github.com/gliwka/hyperscan-java) 提供 native 二进制依赖。
 
+中文 | [English](README.en.md)
+
 - 维护者：XenoAmess
 - 当前版本：`5.4.12-2.0.4-x9`
 - Maven 坐标：`com.xenoamess.hyperscan:native:5.4.12-2.0.4-x9`
@@ -147,12 +149,12 @@ DETECTED_PLATFORM=windows-x86_64 ./build-windows.sh
 
 ## 架构文档
 
-- [Linux x86_64 多变体方案](docs/architecture/linux-x86_64-multi-variant.md)
-- [Linux x86_64 baseline 方案](docs/architecture/linux-x86_64-baseline.md)
-- [Linux arm64 多变体方案](docs/architecture/linux-arm64-multi-variant.md)
-- [Windows 多变体方案](docs/architecture/windows-multi-variant.md)
-- [原版 jar AVX 指令泄漏排查](docs/architecture/investigating-avx-leak-in-original-jar.md)
-- [Linux x86_64 baseline 性能基准](docs/performance/linux-x86_64-baseline-benchmark.md)
+- [Linux x86_64 多变体方案](docs/architecture/linux-x86_64-multi-variant.zh.md)
+- [Linux x86_64 baseline 方案](docs/architecture/linux-x86_64-baseline.zh.md)
+- [Linux arm64 多变体方案](docs/architecture/linux-arm64-multi-variant.zh.md)
+- [Windows 多变体方案](docs/architecture/windows-multi-variant.zh.md)
+- [原版 jar AVX 指令泄漏排查](docs/architecture/investigating-avx-leak-in-original-jar.zh.md)
+- [Linux x86_64 baseline 性能基准](docs/performance/linux-x86_64-baseline-benchmark.zh.md)
 
 ## 许可证
 
