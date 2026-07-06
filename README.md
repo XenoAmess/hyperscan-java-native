@@ -88,9 +88,23 @@ CI 对每个 x86_64 变体执行 `objdump` 校验：
 
 发布通过 [JReleaser](https://jreleaser.org/) 推送到 Maven Central。
 
-## 快速开始
+## 与 hyperscan-java 联合使用
+
+本仓库只发布 native 二进制，业务代码仍使用上游 `com.gliwka.hyperscan:hyperscan-java`。要在保持 Java package 名不变（仍为 `com.gliwka.hyperscan`）的前提下替换 native 库，只需在依赖中 **排除** 上游 `hyperscan-java` 自带的 `com.gliwka.hyperscan:native`，再显式加入本 fork 的 `com.xenoamess.hyperscan:native`。
 
 ```xml
+<dependency>
+    <groupId>com.gliwka.hyperscan</groupId>
+    <artifactId>hyperscan-java</artifactId>
+    <version>5.4.12-2.0.4</version>
+    <exclusions>
+        <exclusion>
+            <groupId>com.gliwka.hyperscan</groupId>
+            <artifactId>native</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+
 <dependency>
     <groupId>com.xenoamess.hyperscan</groupId>
     <artifactId>native</artifactId>
@@ -99,7 +113,17 @@ CI 对每个 x86_64 变体执行 `objdump` 校验：
 </dependency>
 ```
 
-或配合 [os-maven-plugin](https://github.com/trustin/os-maven-plugin) 自动选择 classifier。
+> **package 名没有变化**：`hyperscan-java` 的 Java API 仍在 `com.gliwka.hyperscan` 包下；`HyperscanNativeLoader` 也保留在 `com.gliwka.hyperscan.jni` 包中，因此业务代码通常无需修改，只需替换 native 坐标。
+
+配合 [os-maven-plugin](https://github.com/trustin/os-maven-plugin) 可自动解析 `${os.detected.classifier}`。
+
+## 冒烟测试
+
+完整端到端示例和冒烟测试见独立仓库：
+
+- [XenoAmess/hyperscan-java-test](https://github.com/XenoAmess/hyperscan-java-test)
+
+该仓库演示了如何在上游 `hyperscan-java` 中排除默认 native 依赖并接入本 fork，覆盖 Linux x86_64 / arm64 与 Windows x86_64 的默认路径和强制变体路径。
 
 ## 构建
 
