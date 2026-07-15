@@ -43,11 +43,19 @@ jobs:
       STAGING: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
       - name: Build native binaries in centos container
-        if: matrix.os == 'linux'
+        if: matrix.os == 'linux' && matrix.runner == 'ubuntu-24.04'
         uses: docker://ghcr.io/xenoamess/centos7-toolchain:clang22-lto
         with:
           args: '"./build.sh"'
+
+      - name: Build native binaries in centos container (arm64)
+        if: matrix.os == 'linux' && matrix.runner == 'ubuntu-24.04-arm'
+        uses: docker://ghcr.io/gliwka/centos7-toolchain:main@sha256:e6cf17223408bb4d1314be547d74b23d04bcf6480d2fe23822fb672a52775f76
+        with:
+          args: '"./build.sh"'
+
       - name: Set up Python
         if: matrix.os == 'windows'
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
@@ -70,7 +78,7 @@ jobs:
           export PATH="/c/msys64/ucrt64/bin:/c/msys64/usr/bin:$PATH"
           ./build-windows.sh
       - name: Verify ISA per variant
-        if: matrix.os == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
+        if: matrix.os == 'linux' && runner.arch == 'X64' == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
         run: |
           set -euo pipefail
           PLATFORM="${{ matrix.platform }}"
