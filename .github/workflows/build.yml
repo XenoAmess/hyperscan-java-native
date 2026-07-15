@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - name: Build native binaries in centos container
         if: matrix.os == 'linux'
-        uses: docker://ghcr.io/gliwka/centos7-toolchain:main@sha256:e6cf17223408bb4d1314be547d74b23d04bcf6480d2fe23822fb672a52775f76
+        uses: docker://ghcr.io/xenoamess/centos7-toolchain:clang22-lto
         with:
           args: '"./build.sh"'
       - name: Set up Python
