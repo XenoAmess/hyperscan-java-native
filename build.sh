@@ -126,7 +126,7 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
         -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
         -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
         .
-  make -j $THREADS install/strip
+  CXXFLAGS="-Wno-uninitialized-const-pointer" CFLAGS="-Wno-uninitialized-const-pointer" make -j $THREADS install/strip
   ;;
 linux-arm64|linux-arm64-baseline)
   # Determine SIMD tier for this linux-arm64 variant.
@@ -162,13 +162,13 @@ linux-arm64|linux-arm64-baseline)
         -DBUILD_BENCHMARKS=false \
         -DBUILD_EXAMPLES=false \
         .
-  make -j $THREADS install/strip
+  CXXFLAGS="-Wno-uninitialized-const-pointer" CFLAGS="-Wno-uninitialized-const-pointer" make -j $THREADS install/strip
   ;;
 macosx-x86_64|macosx-arm64)
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
   export MACOSX_DEPLOYMENT_TARGET=12
   cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/.." -DCMAKE_INSTALL_LIBDIR="lib" -DARCH_OPT_FLAGS='-Wno-error' -DPCRE_SOURCE="." -DBUILD_SHARED_LIBS=on . -DFAT_RUNTIME=off -DBUILD_BENCHMARKS=false
-  make -j $THREADS install/strip
+  CXXFLAGS="-Wno-uninitialized-const-pointer" CFLAGS="-Wno-uninitialized-const-pointer" make -j $THREADS install/strip
   ;;
 *)
   echo "Error: Arch \"$DETECTED_PLATFORM\" is not supported"
