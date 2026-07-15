@@ -149,7 +149,7 @@ linux-arm64|linux-arm64-baseline)
 
   # The X86 sed is a no-op on ARM but kept for build script uniformity.
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
-  CC="clang" CXX="clang++" cmake \
+  CC="clang --target=aarch64-linux-gnu" CXX="clang++ --target=aarch64-linux-gnu" cmake \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
         -DCMAKE_INSTALL_LIBDIR="lib" \
