@@ -107,6 +107,7 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
       ;;
   esac
 
+  CC=clang CXX=clang++ \
   cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
         -DCMAKE_INSTALL_LIBDIR="lib" \
