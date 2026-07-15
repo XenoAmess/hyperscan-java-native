@@ -120,7 +120,7 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
         -DBUILD_BENCHMARKS=false \
         -DBUILD_EXAMPLES=false \
         -DBUILD_TOOLS=false \
-        -DBUILD_UNIT_TESTS=OFF \
+        -DBUILD_TESTING=OFF \
         -DCMAKE_C_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
         -DCMAKE_CXX_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
         -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
