@@ -107,6 +107,8 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
       ;;
   esac
 
+  export CXXFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter"
+  CFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter" \
   CC=clang CXX=clang++ \
   cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
@@ -121,8 +123,8 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
         -DBUILD_EXAMPLES=false \
         -DBUILD_TOOLS=false \
         -DBUILD_TESTING=OFF \
-        -DCMAKE_C_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin -Wno-uninitialized-const-pointer -Wno-unused-parameter" \
-        -DCMAKE_CXX_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin -Wno-uninitialized-const-pointer -Wno-unused-parameter" \
+        -DCMAKE_C_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
+        -DCMAKE_CXX_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
         -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
         -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
         .
@@ -148,6 +150,8 @@ linux-arm64|linux-arm64-baseline)
 
   # The X86 sed is a no-op on ARM but kept for build script uniformity.
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
+  export CXXFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter"
+  CFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter" \
   CC=clang CXX=clang++ cmake \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
@@ -158,8 +162,8 @@ linux-arm64|linux-arm64-baseline)
         -DBUILD_SVE=$BUILD_SVE \
         -DBUILD_SVE2=$BUILD_SVE2 \
         -DBUILD_TOOLS=false \
-        -DCMAKE_C_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin -Wno-uninitialized-const-pointer -Wno-unused-parameter" \
-        -DCMAKE_CXX_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin -Wno-uninitialized-const-pointer -Wno-unused-parameter" \
+        -DCMAKE_C_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
+        -DCMAKE_CXX_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
         -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
         -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
         -DBUILD_BENCHMARKS=false \
