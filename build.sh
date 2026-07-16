@@ -74,6 +74,9 @@ cd vectorscan
 # Disable flakey sqlite detection - only needed to build auxillary tools anyways.
 > cmake/sqlite3.cmake
 
+# Disable unit tests (gtest triggers uninitialized-const-pointer with Clang 22)
+sed -i '/add_subdirectory(unit)/d' CMakeLists.txt
+
 # Compatibility patches for GCC 9 (devtoolset-9 in CentOS 7 toolchain):
 # - vectorscan sets -march=x86-64-v2 when FAT_RUNTIME=off and AVX is disabled,
 #   but GCC 9 does not recognize that alias. Use westmere instead.
@@ -107,8 +110,6 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
       ;;
   esac
 
-  export CXXFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter"
-  CFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter" \
   CC=clang CXX=clang++ \
   cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
@@ -150,8 +151,6 @@ linux-arm64|linux-arm64-baseline)
 
   # The X86 sed is a no-op on ARM but kept for build script uniformity.
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
-  export CXXFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter"
-  CFLAGS="-Wno-uninitialized-const-pointer -Wno-unused-parameter" \
   CC=clang CXX=clang++ cmake \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
