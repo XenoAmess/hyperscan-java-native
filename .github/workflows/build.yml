@@ -27,10 +27,10 @@ jobs:
             runner: ubuntu-24.04
             platform: linux-x86_64
           - os: linux
-            runner: ubuntu-24.04
+            runner: ubuntu-24.04-arm
             platform: linux-arm64-baseline
           - os: linux
-            runner: ubuntu-24.04
+            runner: ubuntu-24.04-arm
             platform: linux-arm64
           - os: windows
             runner: windows-latest
