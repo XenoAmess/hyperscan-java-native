@@ -6,6 +6,12 @@ set -o pipefail
 
 VERSION="5.4.12"
 SHA256="1ac4f3c038ac163973f107ac4423a6b246b181ffd97fdd371696b2517ec9b3ed"
+SANITIZER="${SANITIZER:-}"
+
+case "$SANITIZER" in
+  ""|address|undefined) ;;
+  *) echo "Unsupported sanitizer: $SANITIZER" >&2; exit 1 ;;
+esac
 
 detect_platform() {
   # use os-maven-plugin to detect platform
@@ -37,6 +43,19 @@ cross_platform_check_sha() {
 }
 
 THREADS=$(cross_platform_nproc)
+
+CMAKE_BUILD_TYPE=Release
+OPTIMIZATION_FLAGS="-funroll-loops -fomit-frame-pointer -flto=thin"
+LINKER_FLAGS="-fuse-ld=lld"
+INSTALL_TARGET=install/strip
+SANITIZER_CMAKE_ARGS=()
+if [ -n "$SANITIZER" ]; then
+  CMAKE_BUILD_TYPE=RelWithDebInfo
+  OPTIMIZATION_FLAGS="-funroll-loops -fno-omit-frame-pointer"
+  LINKER_FLAGS="-fuse-ld=lld -fsanitize=$SANITIZER"
+  INSTALL_TARGET=install
+  SANITIZER_CMAKE_ARGS=(-DSANITIZE="$SANITIZER")
+fi
 
 mkdir -p cppbuild/lib
 mkdir -p cppbuild/bin
@@ -111,7 +130,7 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
   esac
 
   CC=clang CXX=clang++ \
-  cmake -DCMAKE_BUILD_TYPE=Release \
+  cmake -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
         -DCMAKE_INSTALL_LIBDIR="lib" \
         -DPCRE_SOURCE="." \
@@ -124,12 +143,13 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
         -DBUILD_EXAMPLES=false \
         -DBUILD_TOOLS=false \
         -DBUILD_TESTING=OFF \
-        -DCMAKE_C_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
-        -DCMAKE_CXX_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
-        -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
-        -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
+        -DCMAKE_C_FLAGS="-march=$MARCH $OPTIMIZATION_FLAGS" \
+        -DCMAKE_CXX_FLAGS="-march=$MARCH $OPTIMIZATION_FLAGS" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LINKER_FLAGS" \
+        -DCMAKE_SHARED_LINKER_FLAGS="$LINKER_FLAGS" \
+        "${SANITIZER_CMAKE_ARGS[@]}" \
         .
-  make -j $THREADS install/strip
+  make -j $THREADS "$INSTALL_TARGET"
   ;;
 linux-arm64|linux-arm64-baseline)
   # Determine SIMD tier for this linux-arm64 variant.
@@ -152,7 +172,7 @@ linux-arm64|linux-arm64-baseline)
   # The X86 sed is a no-op on ARM but kept for build script uniformity.
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake
   CC=clang CXX=clang++ cmake \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
         -DCMAKE_INSTALL_PREFIX="$(pwd)/.." \
         -DCMAKE_INSTALL_LIBDIR="lib" \
         -DPCRE_SOURCE="." \
@@ -161,14 +181,15 @@ linux-arm64|linux-arm64-baseline)
         -DBUILD_SVE=$BUILD_SVE \
         -DBUILD_SVE2=$BUILD_SVE2 \
         -DBUILD_TOOLS=false \
-        -DCMAKE_C_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
-        -DCMAKE_CXX_FLAGS="-march=$MARCH -funroll-loops -fomit-frame-pointer -flto=thin" \
-        -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
-        -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
+        -DCMAKE_C_FLAGS="-march=$MARCH $OPTIMIZATION_FLAGS" \
+        -DCMAKE_CXX_FLAGS="-march=$MARCH $OPTIMIZATION_FLAGS" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LINKER_FLAGS" \
+        -DCMAKE_SHARED_LINKER_FLAGS="$LINKER_FLAGS" \
         -DBUILD_BENCHMARKS=false \
         -DBUILD_EXAMPLES=false \
+        "${SANITIZER_CMAKE_ARGS[@]}" \
         .
-  make -j $THREADS install/strip
+  make -j $THREADS "$INSTALL_TARGET"
   ;;
 macosx-x86_64|macosx-arm64)
   sed -i 's/set(X86_ARCH "x86-64-v2")/set(X86_ARCH "westmere")/' cmake/cflags-x86.cmake

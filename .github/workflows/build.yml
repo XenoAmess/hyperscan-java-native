@@ -72,39 +72,125 @@ jobs:
           export PATH="/c/msys64/ucrt64/bin:/c/msys64/usr/bin:$PATH"
           ./build-windows.sh
       - name: Verify ISA per variant
-        if: matrix.os == 'linux' && runner.arch == 'X64' == 'linux' && startsWith(matrix.platform, 'linux-x86_64')
+        if: matrix.os == 'linux' && runner.arch == 'X64' && startsWith(matrix.platform, 'linux-x86_64')
         run: |
           set -euo pipefail
           PLATFORM="${{ matrix.platform }}"
-          find target/staging-deploy -path "*${PLATFORM}*" -name '*.so' | while read -r SO; do
+          NATIVE_DIR="target/native/com/gliwka/hyperscan/jni/${PLATFORM}"
+          mapfile -t SO_FILES < <(find "$NATIVE_DIR" -maxdepth 1 -type f -name '*.so' -print)
+          if [ "${#SO_FILES[@]}" -lt 2 ]; then
+            echo "FAIL: expected native libraries in $NATIVE_DIR, found ${#SO_FILES[@]}"
+            exit 1
+          fi
+
+          for SO in "${SO_FILES[@]}"; do
             echo "Inspecting $SO"
+            DISASSEMBLY=$(mktemp)
+            objdump -d "$SO" > "$DISASSEMBLY"
             case "$PLATFORM" in
               linux-x86_64-baseline)
-                # No VEX/EVEX at all
-                if objdump -d "$SO" | grep -E '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' > /dev/null 2>&1; then
-                  echo "FAIL: $SO contains VEX/EVEX (AVX/AVX2/AVX-512) instructions"
-                  objdump -d "$SO" | grep -nE '^[[:space:]]+[0-9a-f]+:[[:space:]]+[0-9a-f ]+[[:space:]]+v' | head -10
+                # VEX prefixes C4/C5 include AVX and BMI instructions; 62 is EVEX.
+                if grep -Eq '^[[:space:]]*[0-9a-f]+:[[:space:]]+(c4|c5|62)([[:space:]]+[0-9a-f]{2})+[[:space:]]+[a-z]' "$DISASSEMBLY"; then
+                  echo "FAIL: $SO contains VEX/EVEX instructions"
+                  grep -nE '^[[:space:]]*[0-9a-f]+:[[:space:]]+(c4|c5|62)([[:space:]]+[0-9a-f]{2})+[[:space:]]+[a-z]' "$DISASSEMBLY" | head -10
                   exit 1
                 fi
                 ;;
               linux-x86_64-avx2)
-                # VEX (AVX/AVX2) allowed, but no EVEX (AVX-512)
-                if objdump -d "$SO" | grep -E '^[[:space:]]+[0-9a-f]+:[[:space:]]+62[[:space:]]' > /dev/null 2>&1; then
+                if grep -Eq '^[[:space:]]*[0-9a-f]+:[[:space:]]+62([[:space:]]+[0-9a-f]{2})+[[:space:]]+[a-z]' "$DISASSEMBLY"; then
                   echo "FAIL: $SO contains EVEX (AVX-512) instructions"
-                  objdump -d "$SO" | grep -nE '^[[:space:]]+[0-9a-f]+:[[:space:]]+62[[:space:]]' | head -10
+                  grep -nE '^[[:space:]]*[0-9a-f]+:[[:space:]]+62([[:space:]]+[0-9a-f]{2})+[[:space:]]+[a-z]' "$DISASSEMBLY" | head -10
                   exit 1
                 fi
                 ;;
-              linux-x86_64)
-                # AVX-512 build: any SIMD encoding is allowed
-                ;;
             esac
+            rm -f "$DISASSEMBLY"
           done
+
+          CORE="$NATIVE_DIR/libhs.so"
+          test -f "$CORE"
+          CORE_DISASSEMBLY=$(mktemp)
+          objdump -d "$CORE" > "$CORE_DISASSEMBLY"
+          case "$PLATFORM" in
+            linux-x86_64-avx2)
+              grep -Eq '^[[:space:]]*[0-9a-f]+:[[:space:]]+(c4|c5)([[:space:]]+[0-9a-f]{2})+[[:space:]]+[a-z]' "$CORE_DISASSEMBLY" || {
+                echo "FAIL: AVX2 tier contains no VEX instructions"
+                exit 1
+              }
+              ;;
+            linux-x86_64)
+              grep -Eq '^[[:space:]]*[0-9a-f]+:[[:space:]]+62([[:space:]]+[0-9a-f]{2})+[[:space:]]+[a-z]' "$CORE_DISASSEMBLY" || {
+                echo "FAIL: AVX-512 tier contains no EVEX instructions"
+                exit 1
+              }
+              ;;
+          esac
+          rm -f "$CORE_DISASSEMBLY"
+          echo "PASS: ISA check passed for $PLATFORM"
+      - name: Verify ARM ISA per variant
+        if: matrix.os == 'linux' && runner.arch == 'ARM64' && startsWith(matrix.platform, 'linux-arm64')
+        run: |
+          set -euo pipefail
+          PLATFORM="${{ matrix.platform }}"
+          NATIVE_DIR="target/native/com/gliwka/hyperscan/jni/${PLATFORM}"
+          mapfile -t SO_FILES < <(find "$NATIVE_DIR" -maxdepth 1 -type f -name '*.so' -print)
+          if [ "${#SO_FILES[@]}" -lt 2 ]; then
+            echo "FAIL: expected native libraries in $NATIVE_DIR, found ${#SO_FILES[@]}"
+            exit 1
+          fi
+          for SO in "${SO_FILES[@]}"; do
+            DISASSEMBLY=$(mktemp)
+            objdump -d "$SO" > "$DISASSEMBLY"
+            if [ "$PLATFORM" = "linux-arm64-baseline" ] && grep -Eq '\bz[0-9]+\.[bhsd]\b' "$DISASSEMBLY"; then
+              echo "FAIL: baseline $SO contains SVE register instructions"
+              exit 1
+            fi
+            rm -f "$DISASSEMBLY"
+          done
+          if [ "$PLATFORM" = "linux-arm64" ]; then
+            CORE_DISASSEMBLY=$(mktemp)
+            objdump -d "$NATIVE_DIR/libhs.so" > "$CORE_DISASSEMBLY"
+            grep -Eq '\bz[0-9]+\.[bhsd]\b' "$CORE_DISASSEMBLY" || {
+              echo "FAIL: SVE2 tier contains no SVE register instructions"
+              exit 1
+            }
+            rm -f "$CORE_DISASSEMBLY"
+          fi
           echo "PASS: ISA check passed for $PLATFORM"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: build-result-${{ matrix.platform }}
           path: target/staging-deploy
+
+  sanitizer:
+    name: ${{ matrix.sanitizer }} sanitizer
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - name: Build and test baseline with ${{ matrix.sanitizer }} sanitizer
+        uses: docker://ghcr.io/xenoamess/centos7-toolchain:clang22-lto
+        env:
+          DETECTED_PLATFORM: linux-x86_64-baseline
+          SANITIZER: ${{ matrix.sanitizer }}
+        with:
+          args: '"./run-sanitizer.sh"'
+      - name: Upload sanitizer and crash logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sanitizer-logs-${{ matrix.sanitizer }}
+          path: |
+            target/sanitizer/
+            target/surefire-reports/
+            hs_err_pid*.log
+          if-no-files-found: ignore
+      - name: Fail on sanitizer or crash diagnostics
+        if: always()
+        run: bash .github/scripts/check-crash-logs.sh
 
   package-native:
     name: Package unified native jars
@@ -127,17 +213,35 @@ jobs:
           GROUP_DIR="${PWD}/target/staging-deploy/com/xenoamess/hyperscan/native/${VERSION}"
           mkdir -p "$GROUP_DIR"
 
-          # Locate the common artifacts (identical across variants) from the AVX-512 build.
-          MAIN_JAR=$(find target/variant-staging -type f -name "native-${VERSION}.jar" | head -n1)
-          SOURCES_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-sources.jar" | head -n1)
-          JAVADOC_JAR=$(find target/variant-staging -type f -name "native-${VERSION}-javadoc.jar" | head -n1)
-          POM=$(find target/variant-staging -type f -name "native-${VERSION}.pom" | head -n1)
+          # Generate the public Java API from one canonical Vectorscan 5.4.12 build.
+          # Windows uses Intel Hyperscan 5.4.2 and must never supply common classes.
+          CANONICAL_GROUP_DIR="target/variant-staging/build-result-linux-x86_64/com/xenoamess/hyperscan/native/${VERSION}"
+          MAIN_JAR="${CANONICAL_GROUP_DIR}/native-${VERSION}.jar"
+          SOURCES_JAR="${CANONICAL_GROUP_DIR}/native-${VERSION}-sources.jar"
+          JAVADOC_JAR="${CANONICAL_GROUP_DIR}/native-${VERSION}-javadoc.jar"
+          POM="${CANONICAL_GROUP_DIR}/native-${VERSION}.pom"
           for F in "$MAIN_JAR" "$SOURCES_JAR" "$JAVADOC_JAR" "$POM"; do
             if [ -z "$F" ] || [ ! -f "$F" ]; then
-              echo "ERROR: missing common artifact"
+              echo "ERROR: missing canonical common artifact: $F"
               exit 1
             fi
             cp "$F" "$GROUP_DIR/"
+          done
+
+          for PLATFORM in \
+            linux-x86_64-baseline linux-x86_64-avx2 \
+            linux-arm64-baseline linux-arm64; do
+            CANDIDATE="target/variant-staging/build-result-${PLATFORM}/com/xenoamess/hyperscan/native/${VERSION}/native-${VERSION}.jar"
+            if [ ! -f "$CANDIDATE" ]; then
+              echo "ERROR: missing common artifact for API comparison: $CANDIDATE"
+              exit 1
+            fi
+            if ! cmp \
+              <(unzip -p "$MAIN_JAR" com/gliwka/hyperscan/jni/hyperscan.class) \
+              <(unzip -p "$CANDIDATE" com/gliwka/hyperscan/jni/hyperscan.class); then
+              echo "ERROR: generated Java API differs for $PLATFORM"
+              exit 1
+            fi
           done
 
           # Locate the three linux-x86_64 variant classifier jars.
@@ -242,7 +346,8 @@ jobs:
           unzip -q -o "$CLASSIFIER_JAR" -d target/native-test
 
           javac -cp "target/classes:$(cat target/cp.txt)" -d target/test-classes \
-            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java
+            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java \
+            src/test/java/com/gliwka/hyperscan/jni/LoaderFirstUseProbe.java
 
           CP="target/classes:target/test-classes:target/native-test:$(cat target/cp.txt)"
 
@@ -252,8 +357,68 @@ jobs:
           echo "=== forced linux-x86_64-baseline ==="
           java -Dorg.bytedeco.javacpp.platform=linux-x86_64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
 
-          echo "=== forced linux-x86_64-avx2 ==="
-          java -Dorg.bytedeco.javacpp.platform=linux-x86_64-avx2 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+          for FIRST_CLASS in \
+            com.gliwka.hyperscan.jni.hs_compile_error_t \
+            com.gliwka.hyperscan.jni.match_event_handler; do
+            java -cp "$CP" com.gliwka.hyperscan.jni.LoaderFirstUseProbe \
+              linux-x86_64-baseline "$FIRST_CLASS"
+          done
+
+          CPU_FLAGS=$(grep -m1 '^flags' /proc/cpuinfo || true)
+          REQUIRED_AVX2_FLAGS="sse4_2 popcnt avx avx2 bmi1 bmi2 f16c fma movbe xsave"
+          MISSING_AVX2=""
+          for FLAG in $REQUIRED_AVX2_FLAGS; do
+            if ! grep -qw "$FLAG" <<< "$CPU_FLAGS"; then
+              MISSING_AVX2="$MISSING_AVX2 $FLAG"
+            fi
+          done
+          if ! grep -Eqw '(abm|lzcnt)' <<< "$CPU_FLAGS"; then
+            MISSING_AVX2="$MISSING_AVX2 lzcnt"
+          fi
+          if [ -z "$MISSING_AVX2" ]; then
+            echo "=== forced linux-x86_64-avx2 ==="
+            java -Dorg.bytedeco.javacpp.platform=linux-x86_64-avx2 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+            for FIRST_CLASS in \
+              com.gliwka.hyperscan.jni.hs_compile_error_t \
+              com.gliwka.hyperscan.jni.match_event_handler; do
+              java -cp "$CP" com.gliwka.hyperscan.jni.LoaderFirstUseProbe \
+                linux-x86_64-avx2 "$FIRST_CLASS"
+            done
+          else
+            echo "::warning::Skipping AVX2 runtime test; missing:$MISSING_AVX2"
+          fi
+
+          REQUIRED_AVX512_FLAGS="$REQUIRED_AVX2_FLAGS avx512f avx512cd avx512dq avx512bw avx512vl avx512vbmi avx512_bitalg avx512_vpopcntdq"
+          MISSING_AVX512=""
+          for FLAG in $REQUIRED_AVX512_FLAGS; do
+            if ! grep -qw "$FLAG" <<< "$CPU_FLAGS"; then
+              MISSING_AVX512="$MISSING_AVX512 $FLAG"
+            fi
+          done
+          if ! grep -Eqw '(abm|lzcnt)' <<< "$CPU_FLAGS"; then
+            MISSING_AVX512="$MISSING_AVX512 lzcnt"
+          fi
+          if [ -z "$MISSING_AVX512" ]; then
+            echo "=== forced linux-x86_64 AVX-512 ==="
+            java -Dorg.bytedeco.javacpp.platform=linux-x86_64 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+            java -cp "$CP" com.gliwka.hyperscan.jni.LoaderFirstUseProbe \
+              linux-x86_64 com.gliwka.hyperscan.jni.hs_compile_error_t
+          else
+            echo "::warning::Skipping AVX-512 runtime test; missing:$MISSING_AVX512"
+          fi
+      - name: Upload crash logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: crash-logs-linux-x86_64
+          path: |
+            hs_err_pid*.log
+            target/surefire-reports/*.dump
+            target/surefire-reports/*.dumpstream
+          if-no-files-found: ignore
+      - name: Fail on native or JVM crash diagnostics
+        if: always()
+        run: bash .github/scripts/check-crash-logs.sh
 
   test-linux-arm64:
     name: Test linux-arm64 variants
@@ -288,7 +453,8 @@ jobs:
           unzip -q -o "$CLASSIFIER_JAR" -d target/native-test
 
           javac -cp "target/classes:$(cat target/cp.txt)" -d target/test-classes \
-            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java
+            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java \
+            src/test/java/com/gliwka/hyperscan/jni/LoaderFirstUseProbe.java
 
           CP="target/classes:target/test-classes:target/native-test:$(cat target/cp.txt)"
 
@@ -297,6 +463,31 @@ jobs:
 
           echo "=== forced linux-arm64-baseline ==="
           java -Dorg.bytedeco.javacpp.platform=linux-arm64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+
+          java -cp "$CP" com.gliwka.hyperscan.jni.LoaderFirstUseProbe \
+            linux-arm64-baseline com.gliwka.hyperscan.jni.hs_compile_error_t
+
+          if grep -m1 '^Features' /proc/cpuinfo | grep -qw 'sve2'; then
+            echo "=== forced linux-arm64 SVE2 ==="
+            java -Dorg.bytedeco.javacpp.platform=linux-arm64 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+            java -cp "$CP" com.gliwka.hyperscan.jni.LoaderFirstUseProbe \
+              linux-arm64 com.gliwka.hyperscan.jni.hs_compile_error_t
+          else
+            echo "::warning::Skipping SVE2 runtime test; CPU does not expose sve2"
+          fi
+      - name: Upload crash logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: crash-logs-linux-arm64
+          path: |
+            hs_err_pid*.log
+            target/surefire-reports/*.dump
+            target/surefire-reports/*.dumpstream
+          if-no-files-found: ignore
+      - name: Fail on native or JVM crash diagnostics
+        if: always()
+        run: bash .github/scripts/check-crash-logs.sh
 
   test-windows-x86_64:
     name: Test windows-x86_64 variants
@@ -336,7 +527,9 @@ jobs:
           unzip -q -o "$CLASSIFIER_JAR" -d target/native-test
 
           javac -cp "target/classes;$(cat target/cp.txt)" -d target/test-classes \
-            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java
+            src/test/java/com/gliwka/hyperscan/jni/EndToEndTest.java \
+            src/test/java/com/gliwka/hyperscan/jni/LoaderFirstUseProbe.java \
+            src/test/java/com/gliwka/hyperscan/jni/WindowsPlatformSelectionProbe.java
 
           CP="target/classes;target/test-classes;target/native-test;$(cat target/cp.txt)"
 
@@ -346,6 +539,36 @@ jobs:
           echo "=== forced windows-x86_64-baseline ==="
           java -Dorg.bytedeco.javacpp.platform=windows-x86_64-baseline -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
 
+          java -cp "$CP" com.gliwka.hyperscan.jni.LoaderFirstUseProbe \
+            windows-x86_64-baseline com.gliwka.hyperscan.jni.hs_compile_error_t
+
+          echo "=== selection with AVX2 disabled in the VM ==="
+          java -XX:UseAVX=1 -cp "$CP" com.gliwka.hyperscan.jni.WindowsPlatformSelectionProbe \
+            windows-x86_64-baseline
+
+          SELECTED=$(java -cp "$CP" com.gliwka.hyperscan.jni.WindowsPlatformSelectionProbe)
+          if [ "$SELECTED" = "windows-x86_64" ]; then
+            echo "=== forced windows-x86_64 AVX2 ==="
+            java -Dorg.bytedeco.javacpp.platform=windows-x86_64 -cp "$CP" com.gliwka.hyperscan.jni.EndToEndTest
+            java -cp "$CP" com.gliwka.hyperscan.jni.LoaderFirstUseProbe \
+              windows-x86_64 com.gliwka.hyperscan.jni.hs_compile_error_t
+          else
+            echo "::warning::Skipping Windows AVX2 runtime test; selected $SELECTED"
+          fi
+      - name: Upload crash logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: crash-logs-windows-x86_64
+          path: |
+            hs_err_pid*.log
+            target/surefire-reports/*.dump
+            target/surefire-reports/*.dumpstream
+          if-no-files-found: ignore
+      - name: Fail on native or JVM crash diagnostics
+        if: always()
+        run: bash .github/scripts/check-crash-logs.sh
+
   publish:
     if: contains(github.ref, 'refs/tags/v')
     needs:
@@ -353,6 +576,7 @@ jobs:
       - test-linux-x86_64
       - test-linux-arm64
       - test-windows-x86_64
+      - sanitizer
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

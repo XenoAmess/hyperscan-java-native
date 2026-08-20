@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <groupId>com.xenoamess.hyperscan</groupId>
     <artifactId>native</artifactId>
-    <version>5.4.12-2.0.4-x10</version>
+    <version>5.4.12-2.0.4-x11</version>
     <name>hyperscan-java-native</name>
     <description>Native libraries for hyperscan java bindings</description>
     <url>https://github.com/XenoAmess/hyperscan-java-native</url>
@@ -155,12 +155,15 @@
                         <configuration>
                             <target>
                                 <replaceregexp
-                                    file="${project.build.directory}/generated-sources/com/gliwka/hyperscan/jni/hyperscan.java"
                                     match="Loader\.load\(\)"
                                     replace="HyperscanNativeLoader.load()"
                                     byline="false"
                                     flags="g"
-                                />
+                                    failonerror="true">
+                                    <fileset
+                                        dir="${project.build.directory}/generated-sources/com/gliwka/hyperscan/jni"
+                                        includes="*.java" />
+                                </replaceregexp>
                             </target>
                         </configuration>
                     </execution>

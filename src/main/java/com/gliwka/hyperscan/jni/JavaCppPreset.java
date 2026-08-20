@@ -47,7 +47,7 @@ import org.bytedeco.javacpp.tools.InfoMapper;
                         },
                         compiler = "cpp11",
                         include = {"hs/hs_common.h", "hs/hs_compile.h", "hs/hs_runtime.h", "hs/hs.h"},
-                        link = {"hs", "hs_runtime"}
+                        link = {"hs"}
                 )
         },
         target = "com.gliwka.hyperscan.jni",

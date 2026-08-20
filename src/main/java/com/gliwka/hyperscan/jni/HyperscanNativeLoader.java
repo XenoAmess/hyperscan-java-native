@@ -5,9 +5,13 @@ import org.bytedeco.javacpp.Loader;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Properties;
 import java.util.Set;
+import javax.management.ObjectName;
+import javax.management.openmbean.CompositeData;
 
 public final class HyperscanNativeLoader {
 
@@ -15,13 +19,17 @@ public final class HyperscanNativeLoader {
             Arrays.asList("sse4_2", "popcnt")
     );
     private static final Set<String> LINUX_X86_64_AVX2_FLAGS = new HashSet<>(
-            Arrays.asList("avx2", "bmi2")
+            Arrays.asList(
+                    "sse4_2", "popcnt", "avx", "avx2", "bmi1", "bmi2",
+                    "f16c", "fma", "movbe", "xsave"
+            )
     );
     private static final Set<String> LINUX_ARM64_SVE2_FLAGS = new HashSet<>(
             Arrays.asList("sve2")
     );
 
     private static volatile boolean loaded = false;
+    private static volatile String loadedPlatform;
 
     private HyperscanNativeLoader() {
     }
@@ -31,15 +39,30 @@ public final class HyperscanNativeLoader {
             return;
         }
 
-        if (System.getProperty("org.bytedeco.javacpp.platform") == null) {
-            String platform = selectPlatform();
+        String platform = System.getProperty("org.bytedeco.javacpp.platform");
+        if (platform == null || platform.isEmpty()) {
+            platform = selectPlatform();
             if (platform != null) {
                 System.setProperty("org.bytedeco.javacpp.platform", platform);
             }
         }
 
-        Loader.load(JavaCppPreset.class);
+        if (platform != null) {
+            // Loader caches its default platform during class initialization. Passing
+            // explicit properties keeps tier selection correct even if another
+            // JavaCPP Pointer class initialized Loader before Hyperscan.
+            Properties properties = Loader.loadProperties(platform, null);
+            Loader.load(JavaCppPreset.class, properties, false);
+            loadedPlatform = platform;
+        } else {
+            Loader.load(JavaCppPreset.class);
+            loadedPlatform = Loader.getPlatform();
+        }
         loaded = true;
+    }
+
+    public static String getLoadedPlatform() {
+        return loadedPlatform;
     }
 
     public static String selectPlatform() {
@@ -73,14 +96,17 @@ public final class HyperscanNativeLoader {
         // containerized environments expose AVX-512 flags but do not reliably
         // execute AVX-512 instructions. Users who are sure their host supports
         // it can force the AVX-512 build via -Dorg.bytedeco.javacpp.platform=linux-x86_64.
-        if (flags.containsAll(LINUX_X86_64_AVX2_FLAGS)) {
+        if (flags.containsAll(LINUX_X86_64_AVX2_FLAGS)
+                && (flags.contains("abm") || flags.contains("lzcnt"))) {
             return "linux-x86_64-avx2";
         }
         if (flags.containsAll(LINUX_X86_64_BASELINE_FLAGS)) {
             return "linux-x86_64-baseline";
         }
 
-        return "linux-x86_64-baseline";
+        throw new UnsatisfiedLinkError(
+                "Hyperscan baseline requires SSE4.2 and POPCNT on Linux x86_64"
+        );
     }
 
     private static String selectLinuxArm64Variant() {
@@ -93,41 +119,47 @@ public final class HyperscanNativeLoader {
         return "linux-arm64-baseline";
     }
 
-    private static String selectWindowsX86_64Variant() {
-        Set<String> flags = readWindowsCpuFlags();
-
+    static String selectWindowsX86_64Variant() {
         // Intel Hyperscan 5.4.2 does not provide a working AVX-512 MSVC build,
         // so we ship only baseline (SSE4.2-class) and AVX2 tiers. Both AVX2 and
         // AVX-512 capable hosts use the AVX2 build published as windows-x86_64.
-        if (flags.containsAll(LINUX_X86_64_AVX2_FLAGS)) {
+        // HotSpot derives UseAVX from CPUID plus OS XSAVE support, unlike
+        // PROCESSOR_IDENTIFIER, which normally contains no ISA feature names.
+        int useAvx = readHotSpotVmOption("UseAVX");
+        if (useAvx >= 2) {
             return "windows-x86_64";
         }
 
+        int useSse = readHotSpotVmOption("UseSSE");
+        if (useSse >= 0 && useSse < 4) {
+            throw new UnsatisfiedLinkError(
+                    "Hyperscan baseline requires SSE4.2 on Windows x86_64"
+            );
+        }
+
+        // Non-HotSpot VMs may not expose these diagnostic options. Baseline is
+        // the conservative fallback; callers can explicitly select a tier.
         return "windows-x86_64-baseline";
     }
 
-    private static Set<String> readWindowsCpuFlags() {
-        Set<String> flags = new HashSet<>();
-
-        String cpuIdentifier = System.getenv("PROCESSOR_IDENTIFIER");
-        if (cpuIdentifier != null) {
-            String lower = cpuIdentifier.toLowerCase();
-            if (lower.contains("avx512vbmi")) {
-                flags.add("avx512f");
-                flags.add("avx512bw");
-                flags.add("avx512vl");
-                flags.add("avx512vbmi");
-            } else if (lower.contains("avx512")) {
-                flags.add("avx512f");
-                flags.add("avx512bw");
-                flags.add("avx512vl");
-            } else if (lower.contains("avx2")) {
-                flags.add("avx2");
-                flags.add("bmi2");
+    static int readHotSpotVmOption(String option) {
+        try {
+            Object value = ManagementFactory.getPlatformMBeanServer().invoke(
+                    new ObjectName("com.sun.management:type=HotSpotDiagnostic"),
+                    "getVMOption",
+                    new Object[]{option},
+                    new String[]{String.class.getName()}
+            );
+            if (value instanceof CompositeData) {
+                Object optionValue = ((CompositeData) value).get("value");
+                if (optionValue != null) {
+                    return Integer.parseInt(optionValue.toString());
+                }
             }
+        } catch (Exception ignored) {
+            // The diagnostic bean is HotSpot-specific; callers use baseline.
         }
-
-        return flags;
+        return -1;
     }
 
     private static Set<String> readLinuxCpuFlags() {
