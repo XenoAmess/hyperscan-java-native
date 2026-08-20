@@ -48,13 +48,11 @@ CMAKE_BUILD_TYPE=Release
 OPTIMIZATION_FLAGS="-funroll-loops -fomit-frame-pointer -flto=thin"
 LINKER_FLAGS="-fuse-ld=lld"
 INSTALL_TARGET=install/strip
-SANITIZER_CMAKE_ARGS=()
 if [ -n "$SANITIZER" ]; then
   CMAKE_BUILD_TYPE=RelWithDebInfo
   OPTIMIZATION_FLAGS="-funroll-loops -fno-omit-frame-pointer"
   LINKER_FLAGS="-fuse-ld=lld -fsanitize=$SANITIZER"
   INSTALL_TARGET=install
-  SANITIZER_CMAKE_ARGS=(-DSANITIZE="$SANITIZER")
 fi
 
 mkdir -p cppbuild/lib
@@ -147,7 +145,7 @@ linux-x86_64|linux-x86_64-avx2|linux-x86_64-baseline)
         -DCMAKE_CXX_FLAGS="-march=$MARCH $OPTIMIZATION_FLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LINKER_FLAGS" \
         -DCMAKE_SHARED_LINKER_FLAGS="$LINKER_FLAGS" \
-        "${SANITIZER_CMAKE_ARGS[@]}" \
+        -DSANITIZE="$SANITIZER" \
         .
   make -j $THREADS "$INSTALL_TARGET"
   ;;
@@ -187,7 +185,7 @@ linux-arm64|linux-arm64-baseline)
         -DCMAKE_SHARED_LINKER_FLAGS="$LINKER_FLAGS" \
         -DBUILD_BENCHMARKS=false \
         -DBUILD_EXAMPLES=false \
-        "${SANITIZER_CMAKE_ARGS[@]}" \
+        -DSANITIZE="$SANITIZER" \
         .
   make -j $THREADS "$INSTALL_TARGET"
   ;;

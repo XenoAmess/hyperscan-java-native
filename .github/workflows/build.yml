@@ -171,13 +171,15 @@ jobs:
         sanitizer: [address, undefined]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: 'temurin'
+          java-version: '21'
       - name: Build and test baseline with ${{ matrix.sanitizer }} sanitizer
-        uses: docker://ghcr.io/xenoamess/centos7-toolchain:clang22-lto
         env:
           DETECTED_PLATFORM: linux-x86_64-baseline
           SANITIZER: ${{ matrix.sanitizer }}
-        with:
-          args: '"./run-sanitizer.sh"'
+        run: ./run-sanitizer.sh
       - name: Upload sanitizer and crash logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
