@@ -157,7 +157,7 @@ jobs:
             rm -f "$CORE_DISASSEMBLY"
           fi
           echo "PASS: ISA check passed for $PLATFORM"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: build-result-${{ matrix.platform }}
           path: target/staging-deploy
@@ -182,7 +182,7 @@ jobs:
         run: ./run-sanitizer.sh
       - name: Upload sanitizer and crash logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: sanitizer-logs-${{ matrix.sanitizer }}
           path: |
@@ -310,7 +310,7 @@ jobs:
           mkdir -p "target/staging-deploy/com/xenoamess/hyperscan/native"
           echo "Staging repository prepared at target/staging-deploy"
           find target/staging-deploy -type f
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: build-result-native-merged
           path: target/staging-deploy
@@ -410,7 +410,7 @@ jobs:
           fi
       - name: Upload crash logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: crash-logs-linux-x86_64
           path: |
@@ -479,7 +479,7 @@ jobs:
           fi
       - name: Upload crash logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: crash-logs-linux-arm64
           path: |
@@ -559,7 +559,7 @@ jobs:
           fi
       - name: Upload crash logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: crash-logs-windows-x86_64
           path: |
@@ -597,7 +597,7 @@ jobs:
           JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.SIGN_KEY }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.SIGN_KEY_PASS }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: releaser
           path: |
